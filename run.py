@@ -56,10 +56,15 @@ async def run():
         async with Driver(client, rx, tx) as driver:
             #await driver.drive_distance(200, wait=False)
             #await driver.drive_distance(200)
-            #print(await driver.get_version(0xA5))
+            #from driver import Board
+            #print(await driver.get_version(Board.MAIN))
             print(await driver.get_name())
             #print(await driver.get_serial_number())
             #print(await driver.get_sku())
+            #from driver import LEDAnimation
+            #await driver.set_led_animation(LEDAnimation.SPIN, 100, 0, 255)
+            #from driver import MarkerEraserPosition
+            #print(await driver.set_marker_eraser(MarkerEraserPosition.MARKER_DOWN))
             await asyncio.sleep(1)
 
 
