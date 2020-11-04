@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from bleak import discover
 from bleak import BleakClient
 
+from driver import Driver
 from protocol import extract_event
 from protocol import format_command
 
@@ -29,7 +30,7 @@ async def get_chars(client, uart_service_uuid, rx_char_uuid, tx_char_uuid):
 
 
 def notification_handler(sender, data):
-    print(sender, *extract_event(data))
+    print(*extract_event(data))
 
 
 @asynccontextmanager
@@ -52,28 +53,14 @@ async def run():
             tx_char_uuid='6e400003-b5a3-f393-e0a9-e50e24dcca9e',
         )
 
-        async with notify(client, tx):
-            #pkg, hdr = format_command('get_version', 0xA5)
-            pkg, hdr = format_command('get_name')
-            #pkg, hdr = format_command('get_enabled_events')
-            #pkg, hdr = format_command('get_serial_number')
-            #pkg, hdr = format_command('get_sku')
-            #pkg, hdr = format_command('set_motor_speed', 50, 100)
-            #pkg, hdr = format_command('set_left_motor_speed', 100)
-            #pkg, hdr = format_command('set_right_motor_speed', 100)
-            #pkg, hdr = format_command('set_gravity_compensation', 1, 3000)
-            #pkg, hdr = format_command('drive_distance', 200)
-            #pkg, hdr = format_command('rotate_angle', 900)
-            #pkg, hdr = format_command('drive_arc', -900, -120)
-            #pkg, hdr = format_command('set_marker_eraser', 1)
-            #pkg, hdr = format_command('get_color_data', 0, 4, 0)
-            #pkg, hdr = format_command('set_led_animation', 1, 255, 0, 255)
-            #pkg, hdr = format_command('play_note', 100, 1000)
-            #pkg, hdr = format_command('stop_note')
-            #pkg, hdr = format_command('say_phrase', b'hello')
-            #pkg, hdr = format_command('get_battery_level')
-            await client.write_gatt_char(rx, pkg)
-            await asyncio.sleep(10)
+        async with Driver(client, rx, tx) as driver:
+            #await driver.drive_distance(200, wait=False)
+            #await driver.drive_distance(200)
+            #print(await driver.get_version(0xA5))
+            print(await driver.get_name())
+            #print(await driver.get_serial_number())
+            #print(await driver.get_sku())
+            await asyncio.sleep(1)
 
 
 if __name__ == '__main__':
