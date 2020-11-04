@@ -76,8 +76,8 @@ _packet_ids = itertools.count(1)
 
 def format_command(command, *args):
     dev, cmd, fmt = _commands[command]
-    inc = next(_packet_ids)
-    packet = struct.pack(_msg_prefix + fmt, dev, cmd, inc, *args)
+    pid = next(_packet_ids) % 256
+    packet = struct.pack(_msg_prefix + fmt, dev, cmd, pid, *args)
 
     if len(packet) < SIMPLE_PACKET_LEN:
         packet += bytes(SIMPLE_PACKET_LEN - len(packet))
@@ -86,11 +86,11 @@ def format_command(command, *args):
 
     assert len(packet) == FULL_PACKET_LEN
 
-    return bytearray(packet)
+    return bytearray(packet), (dev, cmd, pid)
 
 
 def extract_event(payload):
-    dev, cmd, eid = struct.unpack_from(_msg_prefix, payload)
+    dev, cmd, pid = struct.unpack_from(_msg_prefix, payload)
     name, fmt = _events.get((dev, cmd), (f'unknown-{dev}-{cmd}', '16s'))
 
     if fmt:
@@ -99,4 +99,4 @@ def extract_event(payload):
     else:
         args = ()
 
-    return (name, eid) + args
+    return name, args, (dev, cmd, pid)
