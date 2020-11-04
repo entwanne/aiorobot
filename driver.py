@@ -24,22 +24,28 @@ class Driver:
     async def _send(self, cmd, *args, wait_response=True):
         message, hdr = format_command(cmd, *args)
         if wait_response:
-            self._responses[hdr] = event = asyncio.Event()
+            self._responses[hdr] = waiter = asyncio.Event()
         await self.client.write_gatt_char(self.rx, message)
         if wait_response:
-            await event.wait()
+            await waiter.wait()
             return self._responses.pop(hdr)
 
     def _notification(self, _sender, message):
         name, args, hdr = extract_event(message)
-        event = self._responses.pop(hdr, None)
+        waiter = self._responses.pop(hdr, None)
 
-        if event is None:
-            print(name, args, hdr)
+        if waiter is None:
             self._event_queue.put_nowait((name, args, hdr))
         else:
             self._responses[hdr] = args
-            event.set()
+            waiter.set()
+
+    async def get_events(self, loop=False):
+        q = self._event_queue
+        while loop or not q.empty():
+            event = await q.get()
+            q.task_done()
+            yield event
 
     async def get_version(self, board):
         version = await self._send('get_version', board)
