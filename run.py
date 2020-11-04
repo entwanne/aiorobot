@@ -17,33 +17,42 @@ async def get_client(timeout=1):
     device = devices[0]
     return BleakClient(device)
 
+
+async def get_chars(client, uart_service_uuid, rx_char_uuid, tx_char_uuid):
+    services = await client.get_services()
+    uart = next(service for service in services if service.uuid == uart_service_uuid)
+    rx = uart.get_characteristic(rx_char_uuid)
+    assert 'write' in rx.properties
+    tx = uart.get_characteristic(tx_char_uuid)
+    assert 'notify' in tx.properties
+    return rx, tx
+
+
 def notification_handler(sender, data):
     print(sender, *extract_event(data))
 
 
 @asynccontextmanager
-async def notify(client, rx_char_uuid):
-    await client.start_notify(rx_char_uuid, notification_handler)
+async def notify(client, tx):
+    await client.start_notify(tx, notification_handler)
     try:
         yield
     finally:
-        await client.stop_notify(rx_char_uuid)
+        await client.stop_notify(tx)
 
 
 async def run():
     client = await get_client()
     async with client:
         print(client)
-        #svcs = list(await client.get_services())
-        #print("Services:", svcs)
-        #from pprint import pprint
-        #pprint([(s.uuid, [c.uuid for c in s.characteristics]) for s in svcs])
-        uart_service_uuid = '6e400001-b5a3-f393-e0a9-e50e24dcca9e'
-        tx_char_uuid = '6e400002-b5a3-f393-e0a9-e50e24dcca9e' # Write
-        rx_char_uuid = '6e400003-b5a3-f393-e0a9-e50e24dcca9e' # notify
-        # + check for service and its characteristics
+        rx, tx = await get_chars(
+            client,
+            uart_service_uuid='6e400001-b5a3-f393-e0a9-e50e24dcca9e',
+            rx_char_uuid='6e400002-b5a3-f393-e0a9-e50e24dcca9e',
+            tx_char_uuid='6e400003-b5a3-f393-e0a9-e50e24dcca9e',
+        )
 
-        async with notify(client, rx_char_uuid):
+        async with notify(client, tx):
             #pkg = format_command('get_version', 0xA5)
             pkg = format_command('get_name')
             #pkg = format_command('get_enabled_events')
@@ -63,7 +72,7 @@ async def run():
             #pkg = format_command('stop_note')
             #pkg = format_command('say_phrase', b'hello')
             #pkg = format_command('get_battery_level')
-            await client.write_gatt_char(tx_char_uuid, pkg)
+            await client.write_gatt_char(rx, pkg)
             await asyncio.sleep(10)
 
 
