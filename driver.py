@@ -25,7 +25,7 @@ class Motor(enum.IntEnum):
 class MarkerEraserPosition(enum.IntEnum):
     UP = 0
     MARKER_DOWN = 1
-    ERASER_DOWN = 1
+    ERASER_DOWN = 2
 
 
 class ColorSensor(enum.IntEnum):
