@@ -21,6 +21,12 @@ async def get_robot(timeout=1):
         yield robot
 
 
+async def run_robot(timeout=1, **callbacks):
+    async with get_robot(timeout=timeout) as robot:
+        robot.events.set_callbacks(**callbacks)
+        await robot.events.process()
+
+
 class Robot:
     def __init__(self, device):
         self._device = device
@@ -119,6 +125,9 @@ class RobotEvents(_RobotComponent):
             event_name = event_type
 
         self._callbacks[event_name] = callback
+
+    def set_callbacks(self, **callbacks):
+        self._callbacks.update(callbacks)
 
     async def __aiter__(self):
         "Iterate over all events, waiting for new ones"
