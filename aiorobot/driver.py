@@ -295,11 +295,13 @@ class Driver:
             waiter.set()
 
     async def get_events(self, loop=False):
-        # + handle disconnection
+        # + handle disconnection from robot
         q = self._event_queue
         while loop or not q.empty():
             event = await q.get()
             q.task_done()
+            if event is None:
+                break
             yield event
 
     async def get_version(self, board: Board):
@@ -314,10 +316,12 @@ class Driver:
         return name
 
     async def cancel(self):
+        # + reset waiters to cancel jobs?
         await self._send('cancel', wait_response=False)
 
     async def disconnect(self):
-        await self._send('cancel', wait_response=False)
+        await self._send('disconnect', wait_response=False)
+        self._event_queue.put_nowait(None)
 
     async def enable_events(self, bitfield: bytes):
         await self._send('enable_events', bitfield, wait_response=False)

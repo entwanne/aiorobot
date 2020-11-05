@@ -22,6 +22,10 @@ async def start(robot):
         await robot.music.play(note, 500)
 
 
+async def stop(robot):
+    await robot.disconnect()
+
+
 async def touch(robot, timestamp, state):
     if state:
         await robot.led.spin((0, 255, 0))
@@ -41,6 +45,7 @@ async def bump(robot, timestamp, bumper):
 if __name__ == '__main__':
     run(
         started=start,
+        stopped=stop,
         touch_event=touch,
         bumper_event=bump,
     )
