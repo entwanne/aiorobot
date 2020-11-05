@@ -3,18 +3,12 @@ from contextlib import asynccontextmanager
 import bleak
 
 import driver
-
-
-root_identifier_uuid = '48c5d828-ac2a-442d-97a3-0c9822b04979'
-uart_service_uuid = '6e400001-b5a3-f393-e0a9-e50e24dcca9e'
-rx_char_uuid = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'
-tx_char_uuid = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'
-
+import protocol
 
 async def discover(timeout=1):
     devices = await bleak.discover(
         timeout=timeout,
-        filters={'UUIDs': [root_identifier_uuid]},
+        filters={'UUIDs': [protocol.root_identifier_uuid]},
     )
     return [Robot(device) for device in devices]
 
@@ -39,10 +33,10 @@ class Robot:
         self.music = None
 
     def _get_characteristics(self):
-        uart = self._client.services.get_service(uart_service_uuid)
-        rx = uart.get_characteristic(rx_char_uuid)
+        uart = self._client.services.get_service(protocol.uart_service_uuid)
+        rx = uart.get_characteristic(protocol.rx_char_uuid)
         assert 'write' in rx.properties
-        tx = uart.get_characteristic(tx_char_uuid)
+        tx = uart.get_characteristic(protocol.tx_char_uuid)
         assert 'notify' in tx.properties
         return rx, tx
 

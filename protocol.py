@@ -10,6 +10,12 @@ SIMPLE_PACKET_LEN = FULL_PACKET_LEN - 1
 _msg_prefix = '>3B'
 _msg_prefix_len = struct.calcsize(_msg_prefix)
 
+root_identifier_uuid = '48c5d828-ac2a-442d-97a3-0c9822b04979'
+uart_service_uuid = '6e400001-b5a3-f393-e0a9-e50e24dcca9e'
+rx_char_uuid = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'
+tx_char_uuid = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'
+encoding = 'utf-8'
+
 _commands = {
     # name: (dev, cmd, fmt)
 
