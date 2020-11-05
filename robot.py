@@ -50,12 +50,12 @@ class Robot:
         self._driver = driver.Driver(self._client, rx, tx)
         await self._driver.__aenter__()
 
-        self.events = RobotEvents(self._driver)
-        self.motor = RobotMotor(self._driver)
-        self.marker = RobotMarker(self._driver)
-        self.eraser = RobotEraser(self._driver)
-        self.led = RobotLED(self._driver)
-        self.music = RobotMusic(self._driver)
+        self.events = RobotEvents(self)
+        self.motor = RobotMotor(self)
+        self.marker = RobotMarker(self)
+        self.eraser = RobotEraser(self)
+        self.led = RobotLED(self)
+        self.music = RobotMusic(self)
 
         return self
 
@@ -93,16 +93,22 @@ class Robot:
         await self._driver.disconnect()
 
 
-class RobotEvents:
-    def __init__(self, driver):
-        self._driver = driver
+class _RobotComponent:
+    def __init__(self, robot):
+        self._robot = robot
+        self._driver = robot._driver
+
+
+class RobotEvents(_RobotComponent):
+    def __init__(self, robot):
+        super().__init__(robot)
         self._callbacks = {}
 
     async def _iter_events(self, loop):
         async for event in self._driver.get_events(loop=loop):
             callback = self._callbacks.get(event.event_name, None)
             if callback is not None:
-                asyncio.create_task(callback(*event))
+                asyncio.create_task(callback(self._robot, *event))
 
             yield event
 
@@ -139,10 +145,7 @@ class RobotEvents:
             pass
 
 
-class RobotMotor:
-    def __init__(self, driver):
-        self._driver = driver
-
+class RobotMotor(_RobotComponent):
     async def set_speed(self, left, right):
         await self._driver.set_motor_speed(left, right)
 
@@ -171,10 +174,7 @@ class RobotMotor:
         await self._driver.drive_arc(angle, radius, wait=wait)
 
 
-class RobotMarker:
-    def __init__(self, driver):
-        self._driver = driver
-
+class RobotMarker(_RobotComponent):
     async def down(self, wait=True):
         await self._driver.set_marker_eraser(driver.MarkerEraserPosition.MARKER_DOWN, wait=wait)
 
@@ -182,10 +182,7 @@ class RobotMarker:
         await self._driver.set_marker_eraser(driver.MarkerEraserPosition.UP, wait=wait)
 
 
-class RobotEraser:
-    def __init__(self, driver):
-        self._driver = driver
-
+class RobotEraser(_RobotComponent):
     async def down(self, wait=True):
         await self._driver.set_marker_eraser(driver.MarkerEraserPosition.ERASER_DOWN, wait=wait)
 
@@ -193,9 +190,9 @@ class RobotEraser:
         await self._driver.set_marker_eraser(driver.MarkerEraserPosition.UP, wait=wait)
 
 
-class RobotLED:
-    def __init__(self, driver):
-        self._driver = driver
+class RobotLED(_RobotComponent):
+    def __init__(self, robot):
+        super().__init__(robot)
         self._anim = None
         self._color = (0, 0, 0)
 
@@ -224,10 +221,7 @@ class RobotLED:
         await self._update(driver.LEDAnimation.SPIN, color)
 
 
-class RobotMusic:
-    def __init__(self, driver):
-        self._driver = driver
-
+class RobotMusic(_RobotComponent):
     # + handle notes
 
     async def play(self, frequency, duration=1000):

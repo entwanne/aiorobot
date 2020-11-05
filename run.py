@@ -3,16 +3,21 @@ import asyncio
 from robot import get_robot
 
 
-async def started():
-    print('STARTED')
+async def started(robot):
+    print(await robot.get_name())
 
 
-async def bump(timestamp, bumper):
-    print(bumper)
+async def bump(robot, timestamp, bumper):
+    r = g = b = 0
+    if bumper & bumper.LEFT:
+        r = 255
+    if bumper & bumper.RIGHT:
+        b = 255
+    await robot.led.on((r, g, b))
+
 
 async def run():
     async with get_robot() as robot:
-        print(await robot.get_name())
         #await robot.motor.drive_distance(100)
         #await robot.eraser.down()
         '''
