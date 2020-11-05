@@ -3,8 +3,8 @@ from contextlib import asynccontextmanager
 
 import bleak
 
-import driver
-import protocol
+from . import driver
+from . import protocol
 
 async def discover(timeout=1):
     devices = await bleak.discover(

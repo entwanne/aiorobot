@@ -1,7 +1,7 @@
 import asyncio
 import enum
 
-import protocol
+from . import protocol
 
 
 class Board(enum.Enum):

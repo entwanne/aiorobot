@@ -1,6 +1,6 @@
 import asyncio
 
-from robot import run_robot
+from aiorobot.robot import run_robot
 
 
 async def started(robot):
