@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 import bleak
@@ -26,6 +27,7 @@ class Robot:
         self._client = None
         self._driver = None
 
+        self.events = None
         self.motor = None
         self.marker = None
         self.eraser = None
@@ -48,6 +50,7 @@ class Robot:
         self._driver = driver.Driver(self._client, rx, tx)
         await self._driver.__aenter__()
 
+        self.events = RobotEvents(self._driver)
         self.motor = RobotMotor(self._driver)
         self.marker = RobotMarker(self._driver)
         self.eraser = RobotEraser(self._driver)
@@ -89,10 +92,51 @@ class Robot:
     async def disconnect(self):
         await self._driver.disconnect()
 
-    @property
-    async def all_events(self):
-        async for event in self._driver.get_events(loop=True):
+
+class RobotEvents:
+    def __init__(self, driver):
+        self._driver = driver
+        self._callbacks = {}
+
+    async def _iter_events(self, loop):
+        async for event in self._driver.get_events(loop=loop):
+            callback = self._callbacks.get(event.event_name, None)
+            if callback is not None:
+                asyncio.create_task(callback(*event))
+
             yield event
+
+    def set_callback(self, event_type, callback):
+        if isinstance(event_type, driver._Event):
+            event_name = event_type.event_name
+        else:
+            event_name = event_type
+
+        self._callbacks[event_name] = callback
+
+    async def __aiter__(self):
+        "Iterate over all events, waiting for new ones"
+        async for event in self._iter_events(True):
+            yield event
+
+    @property
+    async def current(self):
+        "Iterate over currently received events"
+        async for event in self._iter_events(False):
+            yield event
+
+    async def process(self, wait=True, loop=True):
+        """
+        Process events (invoking callbacks)
+
+        blocking if wait is true
+        wait for new events if loop is true
+        """
+        if not wait:
+            return asyncio.create_task(self.process(loop=loop))
+
+        async for event in self._iter_events(loop):
+            pass
 
 
 class RobotMotor:

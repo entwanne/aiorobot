@@ -95,6 +95,10 @@ class _Event(tuple):
         return f'{self.__class__.__qualname__}({args})'
 
 
+class StartedEvent(_Event):
+    event_name = 'started'
+
+
 class VersionReponse(_Event):
     event_name = 'version'
     __fields__ = None
@@ -261,6 +265,7 @@ class Driver:
         self.tx = tx
         self._responses = {}
         self._event_queue = asyncio.Queue()
+        self._event_queue.put_nowait(StartedEvent())
 
     async def __aenter__(self):
         await self.client.start_notify(self.tx, self._notification)
@@ -290,6 +295,7 @@ class Driver:
             waiter.set()
 
     async def get_events(self, loop=False):
+        # + handle disconnection
         q = self._event_queue
         while loop or not q.empty():
             event = await q.get()

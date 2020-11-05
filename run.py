@@ -3,6 +3,12 @@ import asyncio
 from robot import get_robot
 
 
+async def started():
+    print('STARTED')
+
+
+async def bump(timestamp, bumper):
+    print(bumper)
 
 async def run():
     async with get_robot() as robot:
@@ -21,8 +27,14 @@ async def run():
         '''
         #await robot.music.play(100)
         #await asyncio.sleep(2)
-        async for event in robot.all_events:
-            print(event)
+        #async for event in robot.events.current:
+        #    print(event)
+        #print('!')
+        #async for event in robot.events:
+        #    print(event)
+        robot.events.set_callback('started', started)
+        robot.events.set_callback('bumper_event', bump)
+        await robot.events.process()
 
 
 if __name__ == '__main__':
