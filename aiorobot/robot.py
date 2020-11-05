@@ -174,7 +174,7 @@ class RobotMotor(_RobotComponent):
         await self._driver.set_gravity_compensation(driver.GravityState.ON_MARKER, amount)
 
     async def drive(self, distance, wait=True):
-        await self._driver.drive_distance(distance, wait=True)
+        await self._driver.drive_distance(distance, wait=wait)
 
     async def rotate(self, angle, wait=True):
         await self._driver.rotate_angle(angle, wait=wait)
