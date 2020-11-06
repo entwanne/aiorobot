@@ -5,6 +5,8 @@ import queue
 
 from aiorobot import run
 
+from print_piano import get_piano
+
 
 notes_freq = {
     'C': 131,
@@ -29,6 +31,12 @@ notes_names = {
     'G': 'sol',
     'A': 'la',
     'B': 'si',
+
+    'C#': 'do#',
+    'Ef': 'mi♭',
+    'F#': 'fa#',
+    'G#': 'sol#',
+    'Bf': 'si♭',
 }
 
 # keyboard char -> (note, multiplicator)
@@ -36,12 +44,13 @@ mapping = dict(zip(
     'qsdfghjklmù*',
     zip('GABCDEFGABCD', (1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3)),
 ))
+mapping.update(zip(
+    'azetyiop$',
+    zip(('F#', 'G#', 'Bf', 'C#', 'Ef', 'F#', 'G#', 'Bf', 'C#'), (1, 1, 1, 2, 2, 2, 2, 2, 3))
+))
 
 
 async def piano(robot):
-    for letter, (note, _) in mapping.items():
-        print(letter, notes_names[note])
-
     loop = asyncio.get_running_loop()
     while True:
         c = await loop.run_in_executor(None, q.get)
@@ -53,6 +62,15 @@ async def piano(robot):
 
 
 def main(stdscr):
+    piano = get_piano(
+        [n for n, _ in mapping.values()],
+        mapping.keys(),
+        150,
+        20,
+    )
+    for y, line in enumerate(piano):
+        stdscr.addstr(y, 0, line)
+
     while True:
         c = stdscr.get_wch()
         if c in mapping:
