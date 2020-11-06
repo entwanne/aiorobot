@@ -1,16 +1,11 @@
 import asyncio
 from contextlib import asynccontextmanager
 
-import bleak
-
 from . import driver
 from . import protocol
 
 async def discover(timeout=1):
-    devices = await bleak.discover(
-        timeout=timeout,
-        filters={'UUIDs': [protocol.root_identifier_uuid]},
-    )
+    devices = await driver.discover_devices(timeout=timeout)
     return [Robot(device) for device in devices]
 
 
@@ -30,8 +25,8 @@ async def run_robot(timeout=1, **callbacks):
 class Robot:
     def __init__(self, device):
         self._device = device
-        self._client = None
         self._driver = None
+        self._ctx = None
 
         self.events = None
         self.motor = None
@@ -40,21 +35,9 @@ class Robot:
         self.led = None
         self.music = None
 
-    def _get_characteristics(self):
-        uart = self._client.services.get_service(protocol.uart_service_uuid)
-        rx = uart.get_characteristic(protocol.rx_char_uuid)
-        assert 'write' in rx.properties
-        tx = uart.get_characteristic(protocol.tx_char_uuid)
-        assert 'notify' in tx.properties
-        return rx, tx
-
     async def __aenter__(self):
-        self._client = bleak.BleakClient(self._device)
-        await self._client.__aenter__()
-
-        rx, tx = self._get_characteristics()
-        self._driver = driver.Driver(self._client, rx, tx)
-        await self._driver.__aenter__()
+        self._ctx = driver.get_driver(self._device)
+        self._driver = await self._ctx.__aenter__()
 
         self.events = RobotEvents(self)
         self.motor = RobotMotor(self)
@@ -66,10 +49,9 @@ class Robot:
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
-        await self._driver.__aexit__(exc_type, exc, tb)
+        await self._ctx.__aexit__(exc_type, exc, tb)
+        self._ctx = None
         self._driver = None
-        await self._client.__aexit__(exc_type, exc, tb)
-        self._client = None
 
     async def get_name(self):
         return await self._driver.get_name()
@@ -77,7 +59,7 @@ class Robot:
     async def set_name(self, name):
         await self._driver.set_name(name)
 
-    async def get_main_board_version(self):
+    async def get_version(self):
         return await self._driver.get_version(driver.Board.MAIN)
 
     async def get_color_board_version(self):
@@ -152,6 +134,15 @@ class RobotEvents(_RobotComponent):
 
         async for event in self._iter_events(loop):
             pass
+
+    async def enable(self, devices):
+        await self._driver.enable_events(devices)
+
+    async def disable(self, devices):
+        await self._driver.disable_events(devices)
+
+    async def get_enabled(self):
+        return await self._driver.get_enabled_events()
 
 
 class RobotMotor(_RobotComponent):

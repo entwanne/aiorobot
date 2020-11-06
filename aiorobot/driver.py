@@ -1,261 +1,40 @@
 import asyncio
 import enum
+from contextlib import asynccontextmanager
+
+import bleak
 
 from . import protocol
+from .events import Event, StartedEvent
+from .types import *
 
 
-class Board(enum.Enum):
-    MAIN = 0xA5
-    COLOR = 0xC6
+async def discover_devices(timeout=1):
+    return await bleak.discover(
+        timeout=timeout,
+        filters={'UUIDs': [protocol.root_identifier_uuid]},
+    )
 
 
-class GravityState(enum.Enum):
-    OFF = 0
-    ON = 1
-    ON_MARKER = 2
+def get_client(device):
+    return bleak.BleakClient(device)
 
 
-class Motor(enum.Enum):
-    LEFT = 0
-    RIGHT = 1
-    MARKER = 2
+def get_characteristics(client):
+    uart = client.services.get_service(protocol.uart_service_uuid)
+    rx = uart.get_characteristic(protocol.rx_char_uuid)
+    assert 'write' in rx.properties
+    tx = uart.get_characteristic(protocol.tx_char_uuid)
+    assert 'notify' in tx.properties
+    return rx, tx
 
 
-class MarkerEraserPosition(enum.Enum):
-    UP = 0
-    MARKER_DOWN = 1
-    ERASER_DOWN = 2
-
-
-class ColorSensor(enum.Enum):
-    LEFT = 0
-    CENTER_LEFT = 1
-    CENTER_RIGHT = 2
-    RIGHT = 3
-
-
-class ColorLightning(enum.Enum):
-    OFF = 0
-    RED = 1
-    GREEN = 2
-    BLUE = 3
-    ALL = 4
-
-
-class ColorFormat(enum.Enum):
-    ADC = 0
-    MV = 1
-
-
-class LEDAnimation(enum.Enum):
-    OFF = 0
-    ON = 1
-    BLINK = 2
-    SPIN = 3
-
-
-class Bumper(enum.Flag):
-    NO = 0
-    RIGHT = 0x40
-    LEFT = 0x80
-    BOTH = 0xC0
-
-
-class _Event(tuple):
-    event_name = 'event'
-    __fields__ = ()
-    _register = {}
-
-    def __new__(cls, *args):
-        args = cls._parse_args(*args)
-        return super().__new__(cls, args)
-
-    def __init_subclass__(cls):
-        import inspect
-        import operator
-        if cls.__fields__ is None:
-            sig = inspect.signature(cls._parse_args)
-            cls.__fields__ = tuple(sig.parameters)
-
-        for i, field in enumerate(cls.__fields__):
-            setattr(cls, field, property(operator.itemgetter(i)))
-
-        cls._register[cls.event_name] = cls
-
-    @classmethod
-    def from_name(cls, event_name, *args):
-        return cls._register[event_name](*args)
-
-    @staticmethod
-    def _parse_args():
-        return ()
-
-    def __repr__(self):
-        args = ', '.join(f'{name}={value}' for name, value in zip(self.__fields__, self))
-        return f'{self.__class__.__qualname__}({args})'
-
-
-class StartedEvent(_Event):
-    event_name = 'started'
-
-
-class VersionReponse(_Event):
-    event_name = 'version'
-    __fields__ = None
-
-    @staticmethod
-    def _parse_args(board, fw_maj, fw_min, hw_maj, hw_min, boot_maj, boot_min, proto_maj, proto_min):
-        return Board(board), fw_maj, fw_min, hw_maj, hw_min, boot_maj, boot_min, proto_maj, proto_min
-
-
-class NameResponse(_Event):
-    event_name = 'name'
-    __fields__ = None
-
-    @staticmethod
-    def _parse_args(name):
-        return name.decode(protocol.encoding),
-
-
-class StoppedEvent(_Event):
-    event_name = 'stopped'
-
-
-class EnabledEventsResponse(_Event):
-    event_name = 'enabled_events'
-    __fields__ = None
-
-    @staticmethod
-    def _parse_args(data):
-        return data,
-
-
-class SerialNumberResponse(_Event):
-    event_name = 'serial_number'
-    __fields__ = None
-
-    @staticmethod
-    def _parse_args(serial_number):
-        return serial_number.decode(protocol.encoding),
-
-
-class SKUEvent(_Event):
-    event_name = 'sku'
-    __fields__ = None
-
-    @staticmethod
-    def _parse_args(sku):
-        return sku.decode(protocol.encoding),
-
-
-class DriveDistanceResponse(_Event):
-    event_name = 'drive_distance_finished'
-
-
-class RotateAngleResponse(_Event):
-    event_name = 'rotate_angle_finished'
-
-
-class DriveArcResponse(_Event):
-    event_name = 'drive_arc_finished'
-
-
-class MotorStallEvent(_Event):
-    event_name = 'motor_stall'
-    __fields__ = None
-
-    @staticmethod
-    def _parse_args(timestamp, motor, cause):
-        return timestamp, Motor(motor), cause
-
-
-class MarkerEraserResponse(_Event):
-    event_name = 'marker_erase_finished'
-    __fields__ = None
-
-    @staticmethod
-    def _parse_args(position):
-        return MarkerEraserPosition(position),
-
-
-class ColorResponse(_Event):
-    event_name = 'color_response'
-    __fields__ = None
-
-    @staticmethod
-    def _parse_args(a, b, c, d, e, f, g, h):
-        return a, b, c, d, e, f, g, h
-
-
-class ColorEvent(_Event):
-    event_name = 'color_event'
-    __fields__ = None
-
-    @staticmethod
-    def _parse_args(data):
-        return data,
-
-
-class PlayNoteResponse(_Event):
-    event_name = 'play_note_finished'
-
-
-class SayPhraseResponse(_Event):
-    event_name = 'say_phrase_finished'
-
-
-class BumperEvent(_Event):
-    event_name = 'bumper_event'
-    __fields__ = None
-
-    @staticmethod
-    def _parse_args(timestamp, state):
-        return timestamp, Bumper(state)
-
-
-class LightEvent(_Event):
-    event_name = 'light_event'
-    __fields__ = None
-
-    @staticmethod
-    def _parse_args(timestamp, state, left, right):
-        return timestamp, state, left, right
-
-
-class BatteryEvent(_Event):
-    event_name = 'battery_event'
-    __fields__ = None
-
-    @staticmethod
-    def _parse_args(timestamp, voltage, percent):
-        return timestamp, voltage, percent
-
-
-class BatteryResponse(_Event):
-    event_name = 'battery_response'
-    __fields__ = None
-
-    @staticmethod
-    def _parse_args(timestamp, voltage, percent):
-        return timestamp, voltage, percent
-
-
-class TouchEvent(_Event):
-    event_name = 'touch_event'
-    __fields__ = None
-
-    @staticmethod
-    def _parse_args(timestamp, state):
-        return timestamp, state
-
-
-class CliffEvent(_Event):
-    event_name = 'cliff_event'
-    __fields__ = None
-
-    @staticmethod
-    def _parse_args(timestamp, cliff, sensor, threshold):
-        return timestamp, cliff, sensor, threshold
+@asynccontextmanager
+async def get_driver(device):
+    async with get_client(device) as client:
+        rx, tx = get_characteristics(client)
+        async with Driver(client, rx, tx) as driver:
+            yield driver
 
 
 class Driver:
@@ -287,7 +66,7 @@ class Driver:
         name, args, hdr = protocol.extract_event(message)
         waiter = self._responses.pop(hdr, None)
 
-        event = _Event.from_name(name, *args)
+        event = Event.parse(name, *args)
         if waiter is None:
             self._event_queue.put_nowait(event)
         else:
