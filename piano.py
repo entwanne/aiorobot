@@ -63,10 +63,12 @@ async def piano(robot):
 
 def main(stdscr):
     piano = get_piano(
-        [n for n, _ in mapping.values()],
-        mapping.keys(),
-        150,
-        20,
+        'GABCDEFGABCD',
+        'qsdfghjklmù*',
+        ('F#', 'G#', 'Bf', None, 'C#', 'Ef', None, 'F#', 'G#', 'Bf', None, 'C#', ''),
+        'aze ty iop $ ',
+        200,
+        30,
     )
     for y, line in enumerate(piano):
         stdscr.addstr(y, 0, line)
