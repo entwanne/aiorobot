@@ -102,15 +102,17 @@ class Driver:
         await self._send('disconnect', wait_response=False)
         self._event_queue.put_nowait(None)
 
-    async def enable_events(self, bitfield: bytes):
+    async def enable_events(self, devices: Devices):
+        bitfield = devices.to_bytes()
         await self._send('enable_events', bitfield, wait_response=False)
 
-    async def disable_events(self, bitfield: bytes):
+    async def disable_events(self, devices: Devices):
+        bitfield = devices.to_bytes()
         await self._send('disable_events', bitfield, wait_response=False)
 
     async def get_enabled_events(self):
         bitfield, = await self._send('get_enabled_events')
-        return bitfield
+        return Devices.from_bytes(bitfield)
 
     async def get_serial_number(self):
         serial, = await self._send('get_serial_number')

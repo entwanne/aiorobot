@@ -16,8 +16,10 @@ async def get_robot(timeout=1):
         yield robot
 
 
-async def run_robot(timeout=1, **callbacks):
+async def run_robot(timeout=1, init=True, **callbacks):
     async with get_robot(timeout=timeout) as robot:
+        if init:
+            await robot.events.enable_all()
         robot.events.set_callbacks(**callbacks)
         await robot.events.process()
 
@@ -43,6 +45,7 @@ class Robot:
         self.motor = RobotMotor(self)
         self.marker = RobotMarker(self)
         self.eraser = RobotEraser(self)
+        self.color = RobotColor(self)
         self.led = RobotLED(self)
         self.music = RobotMusic(self)
 
@@ -138,8 +141,14 @@ class RobotEvents(_RobotComponent):
     async def enable(self, devices):
         await self._driver.enable_events(devices)
 
+    async def enable_all(self):
+        await self.enable(driver.Devices.ALL)
+
     async def disable(self, devices):
         await self._driver.disable_events(devices)
+
+    async def disable_all(self):
+        await self.enable(driver.Devices.ALL)
 
     async def get_enabled(self):
         return await self._driver.get_enabled_events()
@@ -188,6 +197,11 @@ class RobotEraser(_RobotComponent):
 
     async def up(self, wait=True):
         await self._driver.set_marker_eraser(driver.MarkerEraserPosition.UP, wait=wait)
+
+
+class RobotColor(_RobotComponent):
+    async def get(self, sensor, lightning, format):
+        return await self._driver.get_color_data(sensor, lightning, format)
 
 
 class RobotLED(_RobotComponent):

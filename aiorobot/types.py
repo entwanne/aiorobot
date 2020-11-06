@@ -6,6 +6,59 @@ class Board(enum.Enum):
     COLOR = 0xC6
 
 
+class Version(tuple):
+    def __new__(cls, *version):
+        return super().__new__(cls, version)
+
+    @classmethod
+    def parse(cls, version):
+        return cls(*map(int, version.split('.')))
+
+    def __repr__(self):
+        args = ', '.join(str(v) for v in self)
+        return f'{self.__class__.__qualname__}({args})'
+
+    def __str__(self):
+        return '.'.join(str(v) for v in self)
+
+    @property
+    def major(self):
+        return self[0]
+
+    @property
+    def minor(self):
+        return self[1] if len(self) > 1 else 0
+
+
+class Devices(enum.Flag):
+    NONE = 0
+
+    GENERAL = 1
+    MOTORS = 1 << 1
+    MARKER_ERASER = 1 << 2
+    LED_LIGHTS = 1 << 3
+    COLOR_SENSOR = 1 << 4
+    SOUND = 1 << 5
+    BUMPERS = 1 << 12
+    LIGHT_SENSORS = 1 << 13
+    BATTERY = 1 << 14
+    TOUCH_SENSORS = 1 << 17
+    CLIFF_SENSOR = 1 << 20
+
+    ALL = (
+        GENERAL | MOTORS | MARKER_ERASER | LED_LIGHTS | COLOR_SENSOR |
+        SOUND | BUMPERS | LIGHT_SENSORS | BATTERY | TOUCH_SENSORS | CLIFF_SENSOR
+    )
+
+    @classmethod
+    def from_bytes(cls, data):
+        value = int.from_bytes(data, 'big')
+        return cls(value)
+
+    def to_bytes(self):
+        return self.value.to_bytes(16, 'big')
+
+
 class GravityState(enum.Enum):
     OFF = 0
     ON = 1

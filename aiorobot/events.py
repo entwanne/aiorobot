@@ -48,11 +48,15 @@ class StartedEvent(Event):
 
 class VersionReponse(Event):
     event_name = 'version'
-    __fields__ = ...
+    __fields__ = ('board', 'firmware', 'hardware', 'bootloader', 'protocol')
 
     @staticmethod
     def _parse_args(board, fw_maj, fw_min, hw_maj, hw_min, boot_maj, boot_min, proto_maj, proto_min):
-        return Board(board), fw_maj, fw_min, hw_maj, hw_min, boot_maj, boot_min, proto_maj, proto_min
+        firmware = Version.parse(f'{fw_maj}.{fw_min}')
+        hardware = Version.parse(f'{hw_maj}.{hw_min}')
+        bootloader = Version.parse(f'{boot_maj}.{boot_min}')
+        protocol = Version.parse(f'{proto_maj}.{proto_min}')
+        return Board(board), firmware, hardware, bootloader, protocol
 
 
 class NameResponse(Event):
@@ -130,8 +134,8 @@ class ColorResponse(Event):
     __fields__ = None
 
     @staticmethod
-    def _parse_args(a, b, c, d, e, f, g, h):
-        return a, b, c, d, e, f, g, h
+    def _parse_args(*data):
+        return data
 
 
 class ColorEvent(Event):
