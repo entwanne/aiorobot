@@ -1,10 +1,7 @@
-import asyncio
-import queue
-import threading
 import time
 from tkinter import Tk
 
-from aiorobot import run
+from aiorobot.examples.thread import run_thread, queue as q
 
 
 class Keyboard:
@@ -39,9 +36,8 @@ class Keyboard:
 
 
 async def start(robot):
-    loop = asyncio.get_running_loop()
     while True:
-        event = await loop.run_in_executor(None, q.get)
+        event = await q.get()
         if event is None:
             break
         left, right = event
@@ -67,9 +63,7 @@ def handle_keys(keyboard):
     q.put_nowait((left, right))
 
 
-q = queue.SimpleQueue()
-thr = threading.Thread(target=run, kwargs={'started': start})
-thr.start()
+run_thread(started=start)
 
 root = Tk()
 keyboard = Keyboard(root, update_func=handle_keys)

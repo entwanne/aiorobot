@@ -1,9 +1,6 @@
-import asyncio
 import curses
-import threading
-import queue
 
-from aiorobot import run
+from aiorobot.examples.thread import run_thread, queue as q
 
 from print_piano import get_piano
 
@@ -51,9 +48,8 @@ mapping.update(zip(
 
 
 async def piano(robot):
-    loop = asyncio.get_running_loop()
     while True:
-        c = await loop.run_in_executor(None, q.get)
+        c = await q.get()
         if c is None:
             break
         note, mul = mapping[c]
@@ -78,10 +74,9 @@ def main(stdscr):
         if c in mapping:
             q.put_nowait(c)
 
-q = queue.SimpleQueue()
-thr = threading.Thread(target=run, kwargs={'started': piano})
-thr.start()
+
 try:
+    run_thread(started=piano)
     curses.wrapper(main)
 finally:
     q.put_nowait(None)

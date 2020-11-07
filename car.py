@@ -1,9 +1,6 @@
-import asyncio
 import curses
-import threading
-import queue
 
-from aiorobot import run
+from aiorobot.examples.thread import run_thread, queue as q
 
 
 async def key_up(robot):
@@ -28,9 +25,8 @@ mapping = {
 
 
 async def start(robot):
-    loop = asyncio.get_running_loop()
     while True:
-        key = await loop.run_in_executor(None, q.get)
+        key = await q.get()
         if key is None:
             break
         await mapping[key](robot)
@@ -43,10 +39,8 @@ def main(stdscr):
         if key in mapping:
             q.put_nowait(key)
 
-q = queue.SimpleQueue()
-thr = threading.Thread(target=run, kwargs={'started': start})
-thr.start()
 try:
+    run_thread(started=start)
     curses.wrapper(main)
 finally:
     q.put_nowait(None)
