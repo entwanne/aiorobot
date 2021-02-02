@@ -7,7 +7,8 @@ from crc8 import crc8
 FULL_PACKET_LEN = 20
 SIMPLE_PACKET_LEN = FULL_PACKET_LEN - 1
 
-_msg_prefix = '>3B'
+_endian = '>'
+_msg_prefix = _endian + '3B'
 _msg_prefix_len = struct.calcsize(_msg_prefix)
 
 root_identifier_uuid = '48c5d828-ac2a-442d-97a3-0c9822b04979'
@@ -101,7 +102,7 @@ def extract_event(payload):
 
     if fmt:
         payload = payload[_msg_prefix_len:]
-        args = struct.unpack_from(fmt, payload)
+        args = struct.unpack_from(_endian + fmt, payload)
     else:
         args = ()
 
