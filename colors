@@ -1,0 +1,68 @@
+# ADC - Left - RED
+# ADC - Left - GREEN
+# ADC - Left - BLUE
+# ADC - Left - ALL
+# mV - Left - RED
+# mV - Left - GREEN
+# mV - Left - BLUE
+# mV - Left - ALL
+
+# bleu
+ColorResponse(10, 12, 17, 21, 37, 38, 41, 39)
+ColorResponse(13, 18, 28, 38, 57, 64, 76, 76)
+ColorResponse(136, 160, 203, 187, 179, 176, 206, 181)
+ColorResponse(199, 244, 301, 293, 315, 313, 352, 313)
+ColorResponse(2, 3, 5, 6, 10, 11, 11, 11)
+ColorResponse(3, 6, 8, 11, 15, 17, 20, 19)
+ColorResponse(34, 41, 49, 46, 43, 43, 50, 44)
+ColorResponse(49, 60, 74, 72, 76, 76, 86, 76)
+
+# jaune
+ColorResponse(42, 95, 164, 209, 251, 254, 257, 226)
+ColorResponse(15, 20, 31, 51, 70, 76, 80, 82)
+ColorResponse(15, 17, 21, 23, 24, 23, 26, 26)
+ColorResponse(144, 202, 272, 322, 376, 374, 387, 341)
+ColorResponse(14, 27, 40, 51, 62, 62, 62, 55)
+ColorResponse(5, 7, 10, 15, 20, 20, 22, 21)
+ColorResponse(8, 10, 11, 11, 11, 10, 11, 10)
+ColorResponse(37, 49, 65, 77, 91, 91, 94, 84)
+
+# orange
+ColorResponse(84, 135, 206, 272, 348, 378, 432, 341)
+ColorResponse(14, 15, 17, 21, 29, 36, 45, 41)
+ColorResponse(15, 14, 16, 17, 20, 22, 27, 26)
+ColorResponse(126, 170, 241, 313, 400, 439, 503, 406)
+ColorResponse(23, 34, 50, 66, 84, 92, 105, 83)
+ColorResponse(2, 2, 3, 4, 5, 7, 9, 8)
+ColorResponse(3, 2, 2, 2, 2, 2, 2, 3)
+ColorResponse(23, 37, 58, 76, 97, 106, 122, 98)
+
+# gris
+ColorResponse(28, 56, 94, 116, 142, 138, 155, 139)
+ColorResponse(12, 12, 13, 18, 28, 30, 39, 47)
+ColorResponse(27, 51, 98, 110, 119, 103, 133, 126)
+ColorResponse(98, 184, 266, 288, 330, 312, 360, 324)
+ColorResponse(3, 5, 14, 23, 31, 32, 36, 33)
+ColorResponse(2, 2, 3, 5, 7, 7, 10, 12)
+ColorResponse(6, 12, 24, 27, 29, 25, 32, 30)
+ColorResponse(24, 45, 65, 69, 81, 76, 87, 79)
+
+# rouge
+ColorResponse(21, 30, 137, 193, 214, 239, 285, 228)
+ColorResponse(11, 11, 12, 10, 11, 10, 12, 12)
+ColorResponse(11, 14, 13, 12, 11, 13, 12, 13)
+ColorResponse(35, 92, 196, 220, 243, 268, 321, 259)
+ColorResponse(5, 9, 34, 47, 52, 58, 69, 55)
+ColorResponse(2, 2, 3, 2, 2, 2, 3, 2)
+ColorResponse(2, 4, 4, 3, 3, 3, 3, 3)
+ColorResponse(13, 26, 48, 53, 59, 65, 77, 63)
+
+# vert
+ColorResponse(12, 10, 10, 12, 12, 12, 13, 14)
+ColorResponse(13, 12, 14, 15, 17, 20, 24, 31)
+ColorResponse(15, 13, 15, 18, 17, 15, 19, 22)
+ColorResponse(27, 40, 73, 90, 99, 99, 109, 121)
+ColorResponse(2, 2, 2, 2, 3, 3, 3, 4)
+ColorResponse(2, 2, 3, 4, 5, 6, 6, 9)
+ColorResponse(3, 3, 4, 5, 4, 4, 5, 6)
+ColorResponse(7, 11, 19, 23, 25, 24, 27, 29)
