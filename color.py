@@ -20,28 +20,14 @@ async def start(robot):
 
     await robot.disconnect()
 
-def calibrate_color(color, a=1, b=0):
-    return min(int(255 * color / a + b), 255)
-
 async def touch(robot):
-    red = max(await robot.color.get(ColorSensor.LEFT, ColorLightning.RED, ColorFormat.ADC))
-    green = max(await robot.color.get(ColorSensor.LEFT, ColorLightning.GREEN, ColorFormat.ADC))
-    blue = max(await robot.color.get(ColorSensor.LEFT, ColorLightning.BLUE, ColorFormat.ADC))
-    black = max(await robot.color.get(ColorSensor.LEFT, ColorLightning.OFF, ColorFormat.ADC))
-
-    red -= black
-    green -= black
-    blue -= black
-
-    print(red, green, blue, black)
-
-    black = calibrate_color(black, 400)
-    red = calibrate_color(red, 600, black)
-    green = calibrate_color(green, 200, black)
-    blue = calibrate_color(blue, 700, black)
-
-    print(red, green, blue, black)
-    return red, green, blue
+    #color = await robot.color[12]
+    #print(color)
+    #return color
+    colors = await robot.color.all()
+    #colors = await robot.color[10:20]
+    print(colors)
+    return colors[5]
 
 async def start_tk(robot):
     await q.get()

@@ -24,6 +24,14 @@ async def run_robot(timeout=1, init=True, **callbacks):
         await robot.events.process()
 
 
+COLOR_CALIBRATION = {
+    'black': 400, # light surface with no light
+    'red': 600, # white surface with red light
+    'green': 200, # white surface with green light
+    'blue': 700, # white surface with blue light
+}
+
+
 class Robot:
     def __init__(self, device):
         self._device = device
@@ -200,8 +208,69 @@ class RobotEraser(_RobotComponent):
 
 
 class RobotColor(_RobotComponent):
-    async def get(self, sensor, lightning, format):
-        return await self._driver.get_color_data(sensor, lightning, format)
+    def __init__(self, robot):
+        super().__init__(robot)
+        self.reset()
+
+    def reset(self):
+        self.calibrate(**COLOR_CALIBRATION)
+
+    def calibrate(self, black=None, red=None, green=None, blue=None):
+        if black is not None:
+            self.black_k = black
+        if red is not None:
+            self.red_k = red
+        if green is not None:
+            self.green_k = green
+        if blue is not None:
+            self.blue_k = blue
+
+    async def _get_sensor_data(self, sensor_idx):
+        sensor = driver.ColorSensor(sensor_idx)
+        fmt = driver.ColorFormat.ADC
+        black = await self._driver.get_color_data(sensor, driver.ColorLightning.OFF, fmt)
+        red = await self._driver.get_color_data(sensor, driver.ColorLightning.RED, fmt)
+        green = await self._driver.get_color_data(sensor, driver.ColorLightning.GREEN, fmt)
+        blue = await self._driver.get_color_data(sensor, driver.ColorLightning.BLUE, fmt)
+        return zip(black, red, green, blue)
+
+    @staticmethod
+    def _normalize_color_comp(comp, a=255, b=0):
+        comp = max(comp, 0)
+        return min(int(255 * comp / a + b), 255)
+
+    def _normalize_color(self, black, red, green, blue):
+        red -= black
+        green -= black
+        blue -= black
+        black = self._normalize_color_comp(black, self.black_k)
+        red = self._normalize_color_comp(red, self.red_k, black)
+        green = self._normalize_color_comp(green, self.green_k, black)
+        blue = self._normalize_color_comp(blue, self.blue_k, black)
+        return red, green, blue
+
+    async def get(self, idx):
+        if idx < 0:
+            idx += 32
+        sensor_idx, idx = divmod(idx, 8)
+        _color = list(await self._get_sensor(sensor_idx))[idx]
+        return self._normalize_color(*_color)
+
+    async def slice(self, start=None, stop=None, step=None):
+        start, stop, step = slice(start, stop, step).indices(32)
+        sensor_range = range(start // 8, (stop - 1) // 8 + 1)
+        data = [x for sensor_idx in sensor_range for x in await self._get_sensor_data(sensor_idx)]
+        start = start % 8
+        stop -= 8 * sensor_range.start
+        return [self._normalize_color(*x) for x in data[start:stop:step]]
+
+    async def all(self):
+        return await self.slice()
+
+    async def __getitem__(self, key):
+        if isinstance(key, slice):
+            return await self.slice(key.start, key.stop, key.step)
+        return await self.get(key)
 
 
 class RobotLED(_RobotComponent):
