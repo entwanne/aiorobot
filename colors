@@ -66,3 +66,15 @@ ColorResponse(2, 2, 2, 2, 3, 3, 3, 4)
 ColorResponse(2, 2, 3, 4, 5, 6, 6, 9)
 ColorResponse(3, 3, 4, 5, 4, 4, 5, 6)
 ColorResponse(7, 11, 19, 23, 25, 24, 27, 29)
+
+# blanc - ADC
+ColorResponse(279, 383, 521, 579, 672, 747, 830, 695)
+ColorResponse(176, 195, 249, 276, 337, 372, 429, 359)
+ColorResponse(643, 609, 651, 664, 718, 705, 821, 683)
+ColorResponse(1079, 1166, 1395, 1494, 1685, 1810, 2031, 1700)
+
+# noir
+ColorResponse(11, 11, 11, 11, 14, 14, 13, 11)
+ColorResponse(7, 10, 10, 10, 11, 11, 9, 11)
+ColorResponse(9, 13, 13, 14, 14, 13, 14, 12)
+ColorResponse(12, 18, 25, 28, 28, 28, 25, 21)
