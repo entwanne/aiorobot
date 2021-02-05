@@ -24,10 +24,14 @@ async def touch(robot):
     #color = await robot.color[12]
     #print(color)
     #return color
-    colors = await robot.color.all()
+    #colors = await robot.color.all()
     #colors = await robot.color[10:20]
-    print(colors)
-    return colors[5]
+    #print(colors)
+    #return colors[5]
+    #color = await robot.color.mean(0, 8)
+    color = await robot.color.max(0, 8)
+    print(color)
+    return color
 
 async def start_tk(robot):
     await q.get()

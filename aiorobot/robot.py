@@ -210,27 +210,56 @@ class RobotColor(_RobotComponent):
     async def _get_sensor_data(self, sensor_idx):
         sensor = driver.ColorSensor(sensor_idx)
         fmt = driver.ColorFormat.ADC
-        return zip(
+        return (
             await self._driver.get_color_data(sensor, driver.ColorLightning.OFF, fmt),
             await self._driver.get_color_data(sensor, driver.ColorLightning.RED, fmt),
             await self._driver.get_color_data(sensor, driver.ColorLightning.GREEN, fmt),
             await self._driver.get_color_data(sensor, driver.ColorLightning.BLUE, fmt),
         )
 
+    async def _get_sensor_colors(self, sensor_idx):
+        data = await self._get_sensor_data(sensor_idx)
+        return zip(*data)
+
+    async def _get_sensor_color(self, sensor_idx, idx):
+        data = await self._get_sensor_data(sensor_idx)
+        return tuple(comp[idx] for comp in data)
+
     async def get(self, idx):
         if idx < 0:
             idx += 32
         sensor_idx, idx = divmod(idx, 8)
-        raw_color = list(await self._get_sensor(sensor_idx))[idx]
+        raw_color = await self._get_sensor_color(sensor_idx, idx)
         return self.colormap.get(raw_color)
+
+    async def _raw_slice(self, start, stop, step):
+        sensor_range = range(start // 8, (stop - 1) // 8 + 1)
+        colors = []
+        for sensor_idx in sensor_range:
+            colors.extend(await self._get_sensor_colors(sensor_idx))
+        return colors[start % 8 : stop - 8 * sensor_range.start : step]
 
     async def slice(self, start=None, stop=None, step=None):
         start, stop, step = slice(start, stop, step).indices(32)
-        sensor_range = range(start // 8, (stop - 1) // 8 + 1)
-        data = [x for sensor_idx in sensor_range for x in await self._get_sensor_data(sensor_idx)]
-        start = start % 8
-        stop -= 8 * sensor_range.start
-        return [self.colormap.get(x) for x in data[start:stop:step]]
+        raw_slice = await self._raw_slice(start, stop, step)
+        return [self.colormap.get(x) for x in raw_slice]
+
+    async def _slice_map(self, func, *args):
+        colors = await self.slice(*args)
+        red = int(func(c[0] for c in colors))
+        green = int(func(c[1] for c in colors))
+        blue = int(func(c[2] for c in colors))
+        return red, green, blue
+
+    async def mean(self, start=None, stop=None):
+        import statistics
+        return await self._slice_map(statistics.mean, start, stop)
+
+    async def max(self, start=None, stop=None):
+        return await self._slice_map(max, start, stop)
+
+    async def min(self, start=None, stop=None):
+        return await self._slice_map(min, start, stop)
 
     async def all(self):
         return await self.slice()
