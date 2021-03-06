@@ -1,7 +1,8 @@
 import asyncio
 from contextlib import asynccontextmanager
 
-from . import driver
+#from . import driver
+from . import fake_driver as driver
 from . import protocol
 
 async def discover(timeout=1):
