@@ -47,6 +47,7 @@ class Driver:
         self._event_queue.put_nowait(StartedEvent())
 
     async def __aenter__(self):
+        # Use abstraction on client to keep an agnostic version of Driver?
         await self.client.start_notify(self.tx, self._notification)
         return self
 
