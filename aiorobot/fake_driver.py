@@ -1,5 +1,6 @@
 import asyncio
 import threading
+import time
 import uuid
 from contextlib import asynccontextmanager
 from queue import SimpleQueue
@@ -30,8 +31,13 @@ async def wait_sync(func):
 
 
 class Queue(SimpleQueue):
-    async def get(self):
-        return await wait_sync(super().get)
+    closed = False
+    async def get(self, **kwargs):
+        super_get = super().get
+        if kwargs:
+            return await wait_sync(lambda: super_get(**kwargs))
+        else:
+            return await wait_sync(super_get)
 
 
 #queue = Queue()
@@ -58,6 +64,9 @@ def pyglet_thread():
     bg = pyglet.shapes.Rectangle(0, 0, 800, 600, color=(255, 255, 255))
     robot = pyglet.shapes.Rectangle(100, 100, 25, 25, color=(55, 55, 255))
 
+    speed = 50 # 50 pixels per second
+    events = []
+
     @window.event
     def on_draw():
         window.clear()
@@ -65,11 +74,21 @@ def pyglet_thread():
         robot.draw()
 
     def update(dt):
+        if events:
+            pid, t = events.pop(0)
+            if time.time() < t:
+                robot.x += dt * speed
+                events.append((pid, t))
+            else:
+                tx.put_nowait((pid, 'drive_distance_finished'))
+
         if rx.empty():
             return
-        x = rx.get_nowait()
-        
-        print(x)
+
+        pid, cmd, *args = rx.get_nowait()
+        if cmd == 'drive_distance':
+            dist, = args
+            events.append((pid, time.time() + dist / speed))
 
     pyglet.clock.schedule_interval(update, 0.01)
     on_draw()
@@ -88,8 +107,19 @@ class Client:
 
     async def start_notify(self, tx, callback):
         self.callback = callback
+        async def _notify():
+            while not tx.closed:
+                try:
+                    msg = await tx.get(timeout=1)
+                except:
+                    continue
+                self.callback(self, msg)
+        self.notify = asyncio.create_task(_notify())
 
     async def stop_notify(self, tx):
+        tx.closed = True
+        await self.notify
+        self.notify = None
         self.callback = None
 
     async def write_gatt_char(self, rx, message):
@@ -97,9 +127,7 @@ class Client:
             return
         rx.put_nowait(message)
         pid, cmd, *args = message
-        if cmd == 'drive_distance':
-            self.callback(self, (pid, 'drive_distance_finished'))
-        elif cmd == 'rotate_angle':
+        if cmd == 'rotate_angle':
             self.callback(self, (pid, 'rotate_angle_finished'))
 
 
@@ -115,12 +143,3 @@ class Driver(BaseDriver):
     async def __aexit__(self, exc_type, exc, tb):
         await super().__aexit__(exc_type, exc, tb)
         await wait_sync(self.thread.join)
-
-    #async def _send(self, cmd, *args, wait_response=True):
-    #    print(cmd)
-    #    request_id = uuid.uuid4()
-    #    if cmd == 'drive_distance':
-    #        print(args)
-
-    #async def _notification(self, event_id):
-    #    pass
