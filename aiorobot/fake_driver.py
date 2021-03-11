@@ -62,9 +62,10 @@ async def get_driver(device):
 def pyglet_thread():
     window = pyglet.window.Window(width=800, height=600)
     bg = pyglet.shapes.Rectangle(0, 0, 800, 600, color=(255, 255, 255))
-    robot = pyglet.shapes.Rectangle(100, 100, 25, 25, color=(55, 55, 255))
+    robot = pyglet.shapes.Rectangle(100, 500, 25, 25, color=(55, 55, 255))
 
     speed = 50 # 50 pixels per second
+    angle = 1+0j
     events = []
 
     @window.event
@@ -74,10 +75,14 @@ def pyglet_thread():
         robot.draw()
 
     def update(dt):
+        nonlocal angle
         if events:
             pid, t = events.pop(0)
             if time.time() < t:
-                robot.x += dt * speed
+                dz = angle * dt * speed
+                #robot.x += dt * speed
+                robot.x += dz.real
+                robot.y += dz.imag
                 events.append((pid, t))
             else:
                 tx.put_nowait((pid, 'drive_distance_finished'))
@@ -89,6 +94,11 @@ def pyglet_thread():
         if cmd == 'drive_distance':
             dist, = args
             events.append((pid, time.time() + dist / speed))
+        elif cmd == 'rotate_angle':
+            import cmath
+            ddegrees, = args
+            angle *= cmath.exp(-ddegrees * cmath.pi / 1800 * 1j)
+            tx.put_nowait((pid, 'rotate_angle_finished'))
 
     pyglet.clock.schedule_interval(update, 0.01)
     on_draw()
@@ -123,12 +133,7 @@ class Client:
         self.callback = None
 
     async def write_gatt_char(self, rx, message):
-        if self.callback is None:
-            return
         rx.put_nowait(message)
-        pid, cmd, *args = message
-        if cmd == 'rotate_angle':
-            self.callback(self, (pid, 'rotate_angle_finished'))
 
 
 class Driver(BaseDriver):
