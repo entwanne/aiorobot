@@ -72,6 +72,9 @@ def pyglet_thread():
 
     import math
     circ = 25 * math.pi
+    #maxdist = 0
+    dist_event = None
+    curdist = 0
 
     @window.event
     def on_draw():
@@ -86,17 +89,29 @@ def pyglet_thread():
     def update(dt):
         nonlocal left_motor, right_motor
         nonlocal angle
+        nonlocal curdist, dist_event
 
         if left_motor or right_motor:
+            dist = dt * speed * left_motor
+            if dist_event:
+                adist = min(abs(dist), dist_event[0] - curdist)
+                dist = dist * adist / dist
+
             if left_motor == right_motor: # run
-                dz = angle * dt * speed * left_motor
+                dz = angle * dist
                 robot.x += dz.real
                 robot.y += dz.imag
             elif left_motor == -right_motor: # rotate
-                dist = dt * speed * left_motor # 2× because of 2 engines
                 k = dist / circ
                 angle_d = 360 * k
                 robot.rotation += angle_d
+
+            curdist += abs(dist)
+            if dist_event and curdist >= dist_event[0]:
+                left_motor = right_motor = 0
+                curdist = 0
+                tx.put_nowait(dist_event[1])
+                dist_event = None
 
         if rx.empty():
             return
@@ -107,7 +122,8 @@ def pyglet_thread():
             left_motor = right_motor = 1
             dist, = args
             event = (pid, 'drive_distance_finished')
-            pyglet.clock.schedule_once(stop_motor, dist / speed + 0.01, event=event)
+            curdist = 0
+            dist_event = abs(dist), event
         elif cmd == 'rotate_angle':
             import cmath
             ddegrees, = args
@@ -119,13 +135,8 @@ def pyglet_thread():
 
             dist = abs(circ * ddegrees/3600)
             event = (pid, 'rotate_angle_finished')
-            pyglet.clock.schedule_once(stop_motor, dist / speed + 0.01, event=event)
-
-    def stop_motor(_dt, event=None):
-        nonlocal left_motor, right_motor
-        left_motor = right_motor = 0
-        if event:
-            tx.put_nowait(event)
+            curdist = 0
+            dist_event = abs(dist), event
 
     pyglet.clock.schedule_interval(update, 0.01)
     on_draw()
