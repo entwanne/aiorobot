@@ -70,7 +70,7 @@ def pyglet_thread():
     angle = 1+0j
     events = []
 
-    import math
+    import math, cmath
     circ = 25 * math.pi
     #maxdist = 0
     dist_event = None
@@ -105,6 +105,7 @@ def pyglet_thread():
                 k = dist / circ
                 angle_d = 360 * k
                 robot.rotation += angle_d
+                angle *= cmath.exp(-angle_d * cmath.pi / 180 * 1j)
 
             curdist += abs(dist)
             if dist_event and curdist >= dist_event[0]:
@@ -117,7 +118,11 @@ def pyglet_thread():
             return
 
         pid, cmd, *args = rx.get_nowait()
-        # cmd set_motor_speed: divide by 300
+        # cmd set_motor_speed: divide by 100
+        if cmd == 'set_motor_speed':
+            left_speed, right_speed = args
+            left_motor = max(min(left_speed, 100), -100) / 100
+            right_motor = max(min(right_speed, 100), -100) / 100
         if cmd == 'drive_distance':
             left_motor = right_motor = 1
             dist, = args
@@ -125,9 +130,7 @@ def pyglet_thread():
             curdist = 0
             dist_event = abs(dist), event
         elif cmd == 'rotate_angle':
-            import cmath
             ddegrees, = args
-            angle *= cmath.exp(-ddegrees * cmath.pi / 1800 * 1j)
             if ddegrees < 0:
                 left_motor, right_motor = -1, 1
             else:
