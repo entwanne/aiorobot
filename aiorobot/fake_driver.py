@@ -72,7 +72,6 @@ def pyglet_thread():
 
     import math, cmath
     circ = 25 * math.pi
-    #maxdist = 0
     dist_event = None
     curdist = 0
 
@@ -106,6 +105,19 @@ def pyglet_thread():
                 angle_d = 360 * k
                 robot.rotation += angle_d
                 angle *= cmath.exp(-angle_d * cmath.pi / 180 * 1j)
+            else: # general case
+                v = (left_motor + right_motor) / 2
+                dist = dt * speed * v
+                e = 25
+                R = (e/2) * (left_motor + right_motor) / (left_motor - right_motor)
+                dtheta = dist / R
+                theta = math.radians(-robot.rotation)
+                x0 = robot.x - R * math.cos(theta - math.pi/2)
+                y0 = robot.y - R * math.sin(theta - math.pi/2)
+                theta += dtheta
+                robot.rotation += math.degrees(dtheta)
+                robot.position = (x0 + R * math.cos(theta - math.pi/2), y0 + R * math.sin(theta - math.pi/2))
+                angle *= cmath.exp(-dtheta * 1j)
 
             curdist += abs(dist)
             if dist_event and curdist >= dist_event[0]:
