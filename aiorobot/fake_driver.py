@@ -8,8 +8,7 @@ from queue import SimpleQueue
 
 import pyglet
 
-#from . import protocol
-from .driver import Driver as BaseDriver
+from .driver import Driver
 from .driver import protocol
 from .types import *
 
@@ -41,9 +40,6 @@ class Queue(SimpleQueue):
             return await wait_sync(super_get)
 
 
-rx, tx = Queue(), Queue()
-
-
 async def discover_devices(timeout=0):
     return [None]
 
@@ -55,11 +51,11 @@ def get_client(device):
 @asynccontextmanager
 async def get_driver(device):
     async with get_client(device) as client:
-        async with Driver(client, rx, tx) as driver:
+        async with Driver(client, None, None) as driver:
             yield driver
 
 
-def pyglet_thread():
+def pyglet_thread(cmdq, notifq):
     window = pyglet.window.Window(width=800, height=600)
     bg = pyglet.shapes.Rectangle(0, 0, 800, 600, color=(255, 255, 255))
     robot = pyglet.shapes.Rectangle(100, 500, 25, 25, color=(55, 55, 255))
@@ -69,9 +65,6 @@ def pyglet_thread():
     left_motor = right_motor = 0 # speed factor (-1 to 1)
     gap = robot.height # gap between wheels
     events = []
-
-    #dist_event = None
-    #curdist = 0
 
     @window.event
     def on_draw():
@@ -119,12 +112,12 @@ def pyglet_thread():
             # Stop event
             if event:
                 left_motor = right_motor = 0
-                tx.put_nowait(event)
+                notifq.put_nowait(event)
 
-        if rx.empty():
+        if cmdq.empty():
             return
 
-        pid, cmd, *args = rx.get_nowait()
+        pid, cmd, *args = cmdq.get_nowait()
 
         if cmd == 'set_motor_speed':
             left_speed, right_speed = args
@@ -154,43 +147,36 @@ def pyglet_thread():
 class Client:
     def __init__(self, _device):
         self.callback = None
+        self.cmdq = Queue()
+        self.notifq = Queue()
 
     async def __aenter__(self):
+        self.thread = threading.Thread(
+            target=pyglet_thread,
+            kwargs={'cmdq': self.cmdq, 'notifq': self.notifq},
+        )
+        self.thread.start()
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
-        pass
+        await wait_sync(self.thread.join)
 
-    async def start_notify(self, tx, callback):
+    async def start_notify(self, _tx, callback):
         self.callback = callback
         async def _notify():
-            while not tx.closed:
+            while not self.notifq.closed:
                 try:
-                    msg = await tx.get(timeout=1)
+                    msg = await self.notifq.get(timeout=1)
                 except:
                     continue
                 self.callback(self, msg)
         self.notify = asyncio.create_task(_notify())
 
-    async def stop_notify(self, tx):
-        tx.closed = True
+    async def stop_notify(self, _tx):
+        self.notifq.closed = True
         await self.notify
         self.notify = None
         self.callback = None
 
-    async def write_gatt_char(self, rx, message):
-        rx.put_nowait(message)
-
-
-class Driver(BaseDriver):
-    async def __aenter__(self):
-        self.thread = threading.Thread(
-            target=pyglet_thread,
-        )
-        self.thread.start()
-        await super().__aenter__()
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        await super().__aexit__(exc_type, exc, tb)
-        await wait_sync(self.thread.join)
+    async def write_gatt_char(self, _rx, message):
+        self.cmdq.put_nowait(message)
