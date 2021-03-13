@@ -70,8 +70,8 @@ def pyglet_thread():
     gap = robot.height # gap between wheels
     events = []
 
-    dist_event = None
-    curdist = 0
+    #dist_event = None
+    #curdist = 0
 
     @window.event
     def on_draw():
@@ -85,21 +85,24 @@ def pyglet_thread():
 
     def update(dt):
         nonlocal left_motor, right_motor
-        nonlocal curdist, dist_event
 
         if left_motor or right_motor:
-            dist = dt * speed * left_motor
-            if dist_event:
-                adist = min(abs(dist), dist_event[0] - curdist)
-                dist = dist * adist / dist
+            event = None
+            if events:
+                current_time = time.time()
+                if current_time >= events[0][0]:
+                    t, event = events.pop(0)
+                    dt -= current_time - t
 
             # Run
-            if left_motor == right_motor: # run
+            if left_motor == right_motor:
+                dist = dt * speed * left_motor
                 angle = math.radians(-robot.rotation)
                 robot.x += dist * math.cos(angle)
                 robot.y += dist * math.sin(angle)
             # Rotate
-            elif left_motor == -right_motor: # rotate
+            elif left_motor == -right_motor:
+                dist = dt * speed * left_motor
                 angle_d = 360 * dist / (gap * math.pi)
                 robot.rotation += angle_d
             # General case
@@ -113,12 +116,10 @@ def pyglet_thread():
                 robot.x += radius * (math.cos(abs_angle + angle) - math.cos(abs_angle))
                 robot.y += radius * (math.sin(abs_angle + angle) - math.sin(abs_angle))
 
-            curdist += abs(dist)
-            if dist_event and curdist >= dist_event[0]:
+            # Stop event
+            if event:
                 left_motor = right_motor = 0
-                curdist = 0
-                tx.put_nowait(dist_event[1])
-                dist_event = None
+                tx.put_nowait(event)
 
         if rx.empty():
             return
@@ -133,8 +134,7 @@ def pyglet_thread():
             left_motor = right_motor = 1
             dist, = args
             event = (pid, 'drive_distance_finished')
-            curdist = 0
-            dist_event = abs(dist), event
+            events.append((time.time() + abs(dist) / speed, event))
         elif cmd == 'rotate_angle':
             ddegrees, = args
             if ddegrees < 0:
@@ -142,10 +142,9 @@ def pyglet_thread():
             else:
                 left_motor, right_motor = 1, -1
 
-            dist = abs(circ * ddegrees/3600)
+            dist = abs(gap * math.pi * ddegrees/3600)
             event = (pid, 'rotate_angle_finished')
-            curdist = 0
-            dist_event = abs(dist), event
+            events.append((time.time() + dist / speed, event))
 
     pyglet.clock.schedule_interval(update, 0.01)
     on_draw()
