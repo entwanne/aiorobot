@@ -1,4 +1,5 @@
 import asyncio
+import math
 import threading
 import time
 import uuid
@@ -40,7 +41,6 @@ class Queue(SimpleQueue):
             return await wait_sync(super_get)
 
 
-#queue = Queue()
 rx, tx = Queue(), Queue()
 
 
@@ -66,12 +66,10 @@ def pyglet_thread():
     robot.anchor_position = (12.5, 12.5)
 
     speed = 50 # 50 pixels per second
-    left_motor = right_motor = 0 # speed factor
-    angle = 1+0j
+    left_motor = right_motor = 0 # speed factor (-1 to 1)
+    gap = robot.height # gap between wheels
     events = []
 
-    import math, cmath
-    circ = 25 * math.pi
     dist_event = None
     curdist = 0
 
@@ -87,7 +85,6 @@ def pyglet_thread():
 
     def update(dt):
         nonlocal left_motor, right_motor
-        nonlocal angle
         nonlocal curdist, dist_event
 
         if left_motor or right_motor:
@@ -96,28 +93,25 @@ def pyglet_thread():
                 adist = min(abs(dist), dist_event[0] - curdist)
                 dist = dist * adist / dist
 
+            # Run
             if left_motor == right_motor: # run
-                dz = angle * dist
-                robot.x += dz.real
-                robot.y += dz.imag
+                angle = math.radians(-robot.rotation)
+                robot.x += dist * math.cos(angle)
+                robot.y += dist * math.sin(angle)
+            # Rotate
             elif left_motor == -right_motor: # rotate
-                k = dist / circ
-                angle_d = 360 * k
+                angle_d = 360 * dist / (gap * math.pi)
                 robot.rotation += angle_d
-                angle *= cmath.exp(-angle_d * cmath.pi / 180 * 1j)
-            else: # general case
-                v = (left_motor + right_motor) / 2
-                dist = dt * speed * v
-                e = 25
-                R = (e/2) * (left_motor + right_motor) / (left_motor - right_motor)
-                dtheta = dist / R
-                theta = math.radians(-robot.rotation)
-                x0 = robot.x - R * math.cos(theta - math.pi/2)
-                y0 = robot.y - R * math.sin(theta - math.pi/2)
-                theta += dtheta
-                robot.rotation += math.degrees(dtheta)
-                robot.position = (x0 + R * math.cos(theta - math.pi/2), y0 + R * math.sin(theta - math.pi/2))
-                angle *= cmath.exp(-dtheta * 1j)
+            # General case
+            else:
+                motor_speed = (left_motor + right_motor) / 2
+                dist = dt * speed * motor_speed
+                radius = (gap / 2) * (left_motor + right_motor) / (left_motor - right_motor)
+                angle = dist / radius
+                abs_angle = math.radians(-robot.rotation) - math.pi/2
+                robot.rotation += math.degrees(angle)
+                robot.x += radius * (math.cos(abs_angle + angle) - math.cos(abs_angle))
+                robot.y += radius * (math.sin(abs_angle + angle) - math.sin(abs_angle))
 
             curdist += abs(dist)
             if dist_event and curdist >= dist_event[0]:
@@ -130,7 +124,7 @@ def pyglet_thread():
             return
 
         pid, cmd, *args = rx.get_nowait()
-        # cmd set_motor_speed: divide by 100
+
         if cmd == 'set_motor_speed':
             left_speed, right_speed = args
             left_motor = max(min(left_speed, 100), -100) / 100
