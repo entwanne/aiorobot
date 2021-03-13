@@ -9,62 +9,87 @@ from .events import Event, StartedEvent
 from .types import *
 
 
-async def discover_devices(timeout=1):
-    return await bleak.discover(
-        timeout=timeout,
-        filters={'UUIDs': [protocol.root_identifier_uuid]},
-    )
+class Client:
+    protocol = protocol
 
+    @classmethod
+    async def _discover_devices(cls, timeout=1):
+        return await bleak.discover(
+            timeout=timeout,
+            filters={'UUIDs': [cls.protocol.root_identifier_uuid]},
+        )
 
-def get_client(device):
-    return bleak.BleakClient(device)
+    @classmethod
+    async def discover(cls, **kwargs):
+        devices = await cls._discover_devices()
+        return [cls(device) for device in devices]
 
+    def __init__(self, device):
+        self._client = bleak.BleakClient(device)
+        self.tx = None
+        self.rx = None
 
-def get_characteristics(client):
-    uart = client.services.get_service(protocol.uart_service_uuid)
-    rx = uart.get_characteristic(protocol.rx_char_uuid)
-    assert 'write' in rx.properties
-    tx = uart.get_characteristic(protocol.tx_char_uuid)
-    assert 'notify' in tx.properties
-    return rx, tx
+    async def __aenter__(self):
+        await self._client.__aenter__()
+        self._update_characteristics()
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        await self._client.__aexit__(exc_type, exc, tb)
+
+    async def start_notify(self, callback):
+        await self._client.start_notify(self.tx, callback)
+
+    async def stop_notify(self):
+        await self._client.stop_notify(self.tx)
+
+    async def send(self, message):
+        return await self._client.write_gatt_char(self.rx, message)
+
+    def _update_characteristics(self):
+        uart = self._client.services.get_service(self.protocol.uart_service_uuid)
+        rx = uart.get_characteristic(self.protocol.rx_char_uuid)
+        assert 'write' in rx.properties
+        tx = uart.get_characteristic(self.protocol.tx_char_uuid)
+        assert 'notify' in tx.properties
+        self.rx, self.tx = rx, tx
 
 
 @asynccontextmanager
-async def get_driver(device):
-    async with get_client(device) as client:
-        rx, tx = get_characteristics(client)
-        async with Driver(client, rx, tx) as driver:
+async def get_driver(client):
+    async with client, Driver(client) as driver:
             yield driver
 
 
 class Driver:
-    def __init__(self, client, rx, tx):
+    def __init__(self, client):
         self.client = client
-        self.rx = rx
-        self.tx = tx
         self._responses = {}
         self._event_queue = asyncio.Queue()
         self._event_queue.put_nowait(StartedEvent())
 
+    @property
+    def protocol(self):
+        return self.client.protocol
+
     async def __aenter__(self):
-        # Use abstraction on client to keep an agnostic version of Driver?
-        await self.client.start_notify(self.tx, self._notification)
+        await self.client.start_notify(self._notification)
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
-        await self.client.stop_notify(self.tx)
+        await self.client.stop_notify()
 
     async def _send(self, cmd, *args, wait_response=True):
-        message, hdr = protocol.format_command(cmd, *args)
+        message, hdr = self.protocol.format_command(cmd, *args)
         if wait_response:
             self._responses[hdr] = waiter = asyncio.Event()
-        await self.client.write_gatt_char(self.rx, message)
+        await self.client.send(message)
         if wait_response:
             await waiter.wait()
             return self._responses.pop(hdr)
 
     def _notification(self, _sender, message):
-        name, args, hdr = protocol.extract_event(message)
+        name, args, hdr = self.protocol.extract_event(message)
         waiter = self._responses.pop(hdr, None)
 
         event = Event.parse(name, *args)
@@ -89,7 +114,7 @@ class Driver:
         return version
 
     async def set_name(self, name: str):
-        await self._send('set_name', name.encode(protocol.encoding), wait_response=False)
+        await self._send('set_name', name.encode(self.protocol.encoding), wait_response=False)
 
     async def get_name(self):
         name, = await self._send('get_name')
@@ -163,7 +188,7 @@ class Driver:
         await self._send('stop_note', wait_response=False)
 
     async def say_phrase(self, phrase: str, wait=True):
-        await self._send('say_phrase', phrase.encode(protocol.encoding), wait_response=wait)
+        await self._send('say_phrase', phrase.encode(self.protocol.encoding), wait_response=wait)
 
     async def get_battery_level(self):
         _, voltage, rate = await self._send('get_battery_level')

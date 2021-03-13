@@ -9,26 +9,27 @@ from typing import NamedTuple
 
 import pyglet
 
-from .driver import Driver
-from .driver import protocol
-from .types import *
-
-
-def format_command(cmd, *args):
-    pid = uuid.uuid4()
-    return (pid, cmd, *args), pid
-protocol.format_command = format_command
-
-
-def extract_event(message):
-    pid, name, *args = message
-    return name, args, pid
-protocol.extract_event = extract_event
+from . import protocol
 
 
 async def wait_sync(func):
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, func)
+
+
+class Protocol:
+    @staticmethod
+    def format_command(cmd, *args):
+        pid = uuid.uuid4()
+        return (pid, cmd, *args), pid
+
+    @staticmethod
+    def extract_event(message):
+        pid, name, *args = message
+        return name, args, pid
+
+    def __getattr__(self, key):
+        return getattr(protocol, key)
 
 
 class Queue(SimpleQueue):
@@ -41,19 +42,48 @@ class Queue(SimpleQueue):
             return await wait_sync(super_get)
 
 
-async def discover_devices(timeout=0):
-    return [None]
+class Client:
+    protocol = Protocol()
 
+    @classmethod
+    async def discover(cls, **kwargs):
+        return [cls()]
 
-def get_client(device):
-    return Client(device)
+    def __init__(self):
+        self.callback = None
+        self.cmdq = Queue()
+        self.notifq = Queue()
 
+    async def __aenter__(self):
+        self.thread = threading.Thread(
+            target=pyglet_thread,
+            kwargs={'cmdq': self.cmdq, 'notifq': self.notifq},
+        )
+        self.thread.start()
+        return self
 
-@asynccontextmanager
-async def get_driver(device):
-    async with get_client(device) as client:
-        async with Driver(client, None, None) as driver:
-            yield driver
+    async def __aexit__(self, exc_type, exc, tb):
+        await wait_sync(self.thread.join)
+
+    async def start_notify(self, callback):
+        self.callback = callback
+        async def _notify():
+            while not self.notifq.closed:
+                try:
+                    msg = await self.notifq.get(timeout=1)
+                except:
+                    continue
+                self.callback(self, msg)
+        self.notify = asyncio.create_task(_notify())
+
+    async def stop_notify(self):
+        self.notifq.closed = True
+        await self.notify
+        self.notify = None
+        self.callback = None
+
+    async def send(self, message):
+        self.cmdq.put_nowait(message)
 
 
 class Event(NamedTuple):
@@ -176,41 +206,3 @@ def pyglet_thread(cmdq, notifq):
     pyglet.clock.schedule_interval(update, 0.01)
     on_draw()
     pyglet.app.run()
-
-
-class Client:
-    def __init__(self, _device):
-        self.callback = None
-        self.cmdq = Queue()
-        self.notifq = Queue()
-
-    async def __aenter__(self):
-        self.thread = threading.Thread(
-            target=pyglet_thread,
-            kwargs={'cmdq': self.cmdq, 'notifq': self.notifq},
-        )
-        self.thread.start()
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        await wait_sync(self.thread.join)
-
-    async def start_notify(self, _tx, callback):
-        self.callback = callback
-        async def _notify():
-            while not self.notifq.closed:
-                try:
-                    msg = await self.notifq.get(timeout=1)
-                except:
-                    continue
-                self.callback(self, msg)
-        self.notify = asyncio.create_task(_notify())
-
-    async def stop_notify(self, _tx):
-        self.notifq.closed = True
-        await self.notify
-        self.notify = None
-        self.callback = None
-
-    async def write_gatt_char(self, _rx, message):
-        self.cmdq.put_nowait(message)

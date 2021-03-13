@@ -1,24 +1,24 @@
 import asyncio
 from contextlib import asynccontextmanager
 
-#from . import driver
-from . import fake_driver as driver
+from . import driver
 from . import protocol
 
-async def discover(timeout=1):
-    devices = await driver.discover_devices(timeout=timeout)
-    return [Robot(device) for device in devices]
+
+async def discover(client_cls=driver.Client, **kwargs):
+    clients = await client_cls.discover(**kwargs)
+    return [Robot(client) for client in clients]
 
 
 @asynccontextmanager
-async def get_robot(timeout=1):
-    robots = await discover(timeout=timeout)
+async def get_robot(**kwargs):
+    robots = await discover(**kwargs)
     async with robots[0] as robot:
         yield robot
 
 
-async def run_robot(timeout=1, init=True, **callbacks):
-    async with get_robot(timeout=timeout) as robot:
+async def run_robot(timeout=1, client_cls=driver.Client, init=True, **callbacks):
+    async with get_robot(timeout=timeout, client_cls=client_cls) as robot:
         if init:
             await robot.events.enable_all()
         robot.events.set_callbacks(**callbacks)
@@ -26,8 +26,8 @@ async def run_robot(timeout=1, init=True, **callbacks):
 
 
 class Robot:
-    def __init__(self, device):
-        self._device = device
+    def __init__(self, client):
+        self._client = client
         self._driver = None
         self._ctx = None
 
@@ -39,7 +39,7 @@ class Robot:
         self.music = None
 
     async def __aenter__(self):
-        self._ctx = driver.get_driver(self._device)
+        self._ctx = driver.get_driver(self._client)
         self._driver = await self._ctx.__aenter__()
 
         self.events = RobotEvents(self)

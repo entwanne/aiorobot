@@ -1,5 +1,6 @@
 import asyncio
 
+from .robot import discover
 from .robot import get_robot
 from .robot import run_robot
 
