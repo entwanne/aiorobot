@@ -5,6 +5,7 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from queue import SimpleQueue
+from typing import NamedTuple
 
 import pyglet
 
@@ -55,6 +56,12 @@ async def get_driver(device):
             yield driver
 
 
+class Event(NamedTuple):
+    time: float
+    notif: tuple
+    action: None
+
+
 def pyglet_thread(cmdq, notifq):
     window = pyglet.window.Window(width=800, height=600)
     bg = pyglet.shapes.Rectangle(0, 0, 800, 600, color=(255, 255, 255))
@@ -76,44 +83,50 @@ def pyglet_thread(cmdq, notifq):
     def on_expose():
         pass
 
-    def update(dt):
+    def add_event(delay, notif, action):
+        events.append(Event(
+            time.time() + delay,
+            notif,
+            action,
+        ))
+
+    def get_event():
+        delay = 0
+        event = None
+
+        if events:
+            current_time = time.time()
+            if current_time >= events[0].time:
+                event = events.pop(0)
+                delay = current_time - event.time
+
+        return event, delay
+
+    def set_motors(left=0, right=0):
         nonlocal left_motor, right_motor
+        left_motor, right_motor = left, right
 
-        if left_motor or right_motor:
-            event = None
-            if events:
-                current_time = time.time()
-                if current_time >= events[0][0]:
-                    t, event = events.pop(0)
-                    dt -= current_time - t
+    def update_motor(dt):
+        if left_motor == right_motor:  # Run
+            dist = dt * speed * left_motor
+            angle = math.radians(-robot.rotation)
+            robot.x += dist * math.cos(angle)
+            robot.y += dist * math.sin(angle)
+        elif left_motor == -right_motor:  # Rotate
+            dist = dt * speed * left_motor
+            angle_d = 360 * dist / (gap * math.pi)
+            robot.rotation += angle_d
+        else:  # General case
+            motor_speed = (left_motor + right_motor) / 2
+            dist = dt * speed * motor_speed
+            radius = (gap / 2) * (left_motor + right_motor) / (left_motor - right_motor)
+            angle = dist / radius
+            abs_angle = math.radians(-robot.rotation) - math.pi/2
+            robot.rotation += math.degrees(angle)
+            robot.x += radius * (math.cos(abs_angle + angle) - math.cos(abs_angle))
+            robot.y += radius * (math.sin(abs_angle + angle) - math.sin(abs_angle))
 
-            # Run
-            if left_motor == right_motor:
-                dist = dt * speed * left_motor
-                angle = math.radians(-robot.rotation)
-                robot.x += dist * math.cos(angle)
-                robot.y += dist * math.sin(angle)
-            # Rotate
-            elif left_motor == -right_motor:
-                dist = dt * speed * left_motor
-                angle_d = 360 * dist / (gap * math.pi)
-                robot.rotation += angle_d
-            # General case
-            else:
-                motor_speed = (left_motor + right_motor) / 2
-                dist = dt * speed * motor_speed
-                radius = (gap / 2) * (left_motor + right_motor) / (left_motor - right_motor)
-                angle = dist / radius
-                abs_angle = math.radians(-robot.rotation) - math.pi/2
-                robot.rotation += math.degrees(angle)
-                robot.x += radius * (math.cos(abs_angle + angle) - math.cos(abs_angle))
-                robot.y += radius * (math.sin(abs_angle + angle) - math.sin(abs_angle))
-
-            # Stop event
-            if event:
-                left_motor = right_motor = 0
-                notifq.put_nowait(event)
-
+    def handle_command():
         if cmdq.empty():
             return
 
@@ -121,23 +134,44 @@ def pyglet_thread(cmdq, notifq):
 
         if cmd == 'set_motor_speed':
             left_speed, right_speed = args
-            left_motor = max(min(left_speed, 100), -100) / 100
-            right_motor = max(min(right_speed, 100), -100) / 100
+            set_motors(
+                max(min(left_speed, 100), -100) / 100,
+                max(min(right_speed, 100), -100) / 100,
+            )
         if cmd == 'drive_distance':
-            left_motor = right_motor = 1
+            set_motors(1, 1)
             dist, = args
-            event = (pid, 'drive_distance_finished')
-            events.append((time.time() + abs(dist) / speed, event))
+            add_event(
+                abs(dist) / speed,
+                (pid, 'drive_distance_finished'),
+                set_motors,
+            )
         elif cmd == 'rotate_angle':
             ddegrees, = args
             if ddegrees < 0:
-                left_motor, right_motor = -1, 1
+                set_motors(-1, 1)
             else:
-                left_motor, right_motor = 1, -1
+                set_motors(1, -1)
 
-            dist = abs(gap * math.pi * ddegrees/3600)
-            event = (pid, 'rotate_angle_finished')
-            events.append((time.time() + dist / speed, event))
+            add_event(
+                abs(gap * math.pi * ddegrees/3600) / speed,
+                (pid, 'rotate_angle_finished'),
+                set_motors,
+            )
+
+    def update(dt):
+        event, delay = get_event()
+        if delay:
+            dt -= delay
+
+        if left_motor or right_motor:
+            update_motor(dt)
+
+        if event:
+            event.action()
+            notifq.put_nowait(event.notif)
+
+        handle_command()
 
     pyglet.clock.schedule_interval(update, 0.01)
     on_draw()
