@@ -121,7 +121,7 @@ class MotorStallEvent(Event):
 
 
 class MarkerEraserResponse(Event):
-    event_name = 'marker_erase_finished'
+    event_name = 'marker_eraser_finished'
     __fields__ = ...
 
     @staticmethod
