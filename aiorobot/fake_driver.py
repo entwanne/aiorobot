@@ -92,22 +92,105 @@ class Event(NamedTuple):
     action: None
 
 
+class FakeRobot:
+    speed = 50 # 50 pixels per second
+    gap = 25 # gap between wheels
+    width = height = gap
+
+    def __init__(self, x, y, batch=None):
+        # speed factor (-1 to 1)
+        self.left_motor = 0
+        self.right_motor = 0
+        self.marker = False
+
+        self.batch = batch
+        self.bg_group = pyglet.graphics.OrderedGroup(1)
+        self.fg_group = pyglet.graphics.OrderedGroup(2)
+
+        self.sprite = pyglet.shapes.Rectangle(
+            x, y, self.width, self.height,
+            color=(55, 55, 255),
+            batch=self.batch,
+            group=self.fg_group,
+        )
+        self.sprite.anchor_position = (self.width/2, self.height/2)
+
+        self.segments = []
+
+    @property
+    def position(self):
+        return self.sprite.position
+
+    @property
+    def x(self):
+        return self.sprite.x
+
+    @property
+    def y(self):
+        return self.sprite.y
+
+    def move(self, dx, dy):
+        self.sprite.x += dx
+        self.sprite.y += dy
+
+    @property
+    def angle(self):
+        return math.radians(-self.sprite.rotation)
+
+    def rotate(self, angle):
+        self.sprite.rotation += math.degrees(angle)
+
+    def set_motors(self, left=0, right=0):
+        self.left_motor, self.right_motor = left, right
+
+    def walk(self, dt):
+        if not self.left_motor and not self.right_motor:
+            return
+
+        old_position = self.position
+
+        if self.left_motor == self.right_motor:  # Run
+            dist = dt * self.speed * self.left_motor
+            angle = self.angle
+            self.move(dist * math.cos(angle), dist * math.sin(angle))
+        elif self.left_motor == -self.right_motor:  # Rotate
+            dist = dt * self.speed * self.left_motor
+            angle = 2 * dist / self.gap # 2pi * dist / (gap * pi)
+            self.rotate(angle)
+        else:  # General case
+            motor_speed = (self.left_motor + self.right_motor) / 2
+            dist = dt * self.speed * motor_speed
+            radius = (self.gap / 2) * (self.left_motor + self.right_motor) / (self.left_motor - self.right_motor)
+            angle = dist / radius
+            abs_angle = self.angle - math.pi/2
+            self.rotate(angle)
+            self.move(
+                radius * (math.cos(abs_angle + angle) - math.cos(abs_angle)),
+                radius * (math.sin(abs_angle + angle) - math.sin(abs_angle)),
+            )
+
+        if self.marker and self.position != old_position:
+            self.segments.append(pyglet.shapes.Line(
+                *old_position, *self.position, color=(0, 0, 0),
+                batch=self.batch, group=self.bg_group,
+            ))
+
+
 def pyglet_thread(cmdq, notifq):
     window = pyglet.window.Window(width=800, height=600)
-    bg = pyglet.shapes.Rectangle(0, 0, 800, 600, color=(255, 255, 255))
-    robot = pyglet.shapes.Rectangle(100, 500, 25, 25, color=(55, 55, 255))
-    robot.anchor_position = (12.5, 12.5)
+    batch = pyglet.graphics.Batch()
+    bg = pyglet.shapes.Rectangle(
+        0, 0, 800, 600, color=(255, 255, 255),
+        batch=batch, group=pyglet.graphics.OrderedGroup(0),
+    )
+    robot = FakeRobot(100, 500, batch=batch)
 
-    speed = 50 # 50 pixels per second
-    left_motor = right_motor = 0 # speed factor (-1 to 1)
-    gap = robot.height # gap between wheels
     events = []
 
     @window.event
     def on_draw():
         window.clear()
-        bg.draw()
-        robot.draw()
+        batch.draw()
 
     @window.event
     def on_expose():
@@ -132,30 +215,6 @@ def pyglet_thread(cmdq, notifq):
 
         return event, delay
 
-    def set_motors(left=0, right=0):
-        nonlocal left_motor, right_motor
-        left_motor, right_motor = left, right
-
-    def update_motor(dt):
-        if left_motor == right_motor:  # Run
-            dist = dt * speed * left_motor
-            angle = math.radians(-robot.rotation)
-            robot.x += dist * math.cos(angle)
-            robot.y += dist * math.sin(angle)
-        elif left_motor == -right_motor:  # Rotate
-            dist = dt * speed * left_motor
-            angle_d = 360 * dist / (gap * math.pi)
-            robot.rotation += angle_d
-        else:  # General case
-            motor_speed = (left_motor + right_motor) / 2
-            dist = dt * speed * motor_speed
-            radius = (gap / 2) * (left_motor + right_motor) / (left_motor - right_motor)
-            angle = dist / radius
-            abs_angle = math.radians(-robot.rotation) - math.pi/2
-            robot.rotation += math.degrees(angle)
-            robot.x += radius * (math.cos(abs_angle + angle) - math.cos(abs_angle))
-            robot.y += radius * (math.sin(abs_angle + angle) - math.sin(abs_angle))
-
     def handle_command():
         if cmdq.empty():
             return
@@ -164,38 +223,46 @@ def pyglet_thread(cmdq, notifq):
 
         if cmd == 'set_motor_speed':
             left_speed, right_speed = args
-            set_motors(
+            robot.set_motors(
                 max(min(left_speed, 100), -100) / 100,
                 max(min(right_speed, 100), -100) / 100,
             )
-        if cmd == 'drive_distance':
-            set_motors(1, 1)
+        elif cmd == 'drive_distance':
+            robot.set_motors(1, 1)
             dist, = args
             add_event(
-                abs(dist) / speed,
+                abs(dist) / robot.speed,
                 (pid, 'drive_distance_finished'),
-                set_motors,
+                robot.set_motors,
             )
         elif cmd == 'rotate_angle':
             ddegrees, = args
             if ddegrees < 0:
-                set_motors(-1, 1)
+                robot.set_motors(-1, 1)
             else:
-                set_motors(1, -1)
+                robot.set_motors(1, -1)
 
             add_event(
-                abs(gap * math.pi * ddegrees/3600) / speed,
+                abs(robot.gap * math.pi * ddegrees/3600) / robot.speed,
                 (pid, 'rotate_angle_finished'),
-                set_motors,
+                robot.set_motors,
             )
+        elif cmd == 'set_marker_eraser':
+            pos, = args
+            if pos == 0:
+                robot.marker = False
+            elif pos == 1:
+                robot.marker = True
+            notifq.put_nowait((pid, 'marker_eraser_finished', pos))
+        else:
+            print(f'Unknown command {cmd!r}')
 
     def update(dt):
         event, delay = get_event()
         if delay:
             dt -= delay
 
-        if left_motor or right_motor:
-            update_motor(dt)
+        robot.walk(dt)
 
         if event:
             event.action()
