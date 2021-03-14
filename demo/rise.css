@@ -1,0 +1,45 @@
+/*
+Placeholder for custom user CSS
+
+mainly to be overridden in profile/static/custom/custom.css
+
+This will always be an empty file in IPython
+*/
+
+/*for the error , connecting & renaming window*/
+
+[dir="rtl"] .modal-footer {
+	text-align : left !important;
+}
+
+[dir="rtl"] .close {
+	float : left;
+}
+
+[dir="rtl"] .fa-step-forward::before {
+    content: "\f048";
+}
+
+#notebook {
+    background-color: #F7F7F7;
+}
+
+#notebook .text_cell * {
+    color: #424242;
+}
+
+#notebook .text_cell h1, #notebook .text_cell h1 * {
+    color: #084561;
+    text-decoration: underline;
+    text-decoration-color: #F8AD32;
+    text-align: center;
+}
+
+#notebook .text_cell h2, #notebook .text_cell h2 * {
+    color: #ea9408;
+}
+
+#notebook .text_cell h3, #notebook .text_cell h3 * {
+    color: #ea9408;
+    text-align: center;
+}
