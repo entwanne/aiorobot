@@ -1,4 +1,5 @@
 from aiorobot import run_robot
+from aiorobot.fake_driver import Client, FakeRobot
 
 async def main(robot):
     await robot.marker.down()
@@ -9,4 +10,4 @@ async def main(robot):
     await robot.marker.up()
     await robot.disconnect()
 
-await run_robot(started=main)
+await run_robot(started=main, client_cls=Client)

@@ -1,6 +1,5 @@
 from aiorobot import get_robot
 
-
 async def main():
     async with get_robot() as robot:
         await robot.marker.down()
@@ -9,6 +8,5 @@ async def main():
             await robot.motor.drive(150)
             await robot.motor.rotate(900)
         await robot.marker.up()
-
 
 await main()

@@ -1,5 +1,9 @@
 # Dessine-moi une tortue ✎🐢
 
+```python skip
+#include code/init.py
+```
+
 ## Coucou
 
 ## Salut
