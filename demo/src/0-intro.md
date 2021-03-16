@@ -1,15 +1,23 @@
 # Dessine-moi une tortue ✎🐢
 
+_Antoine "entwanne" Rozo_
+
+<center><img src="src/img/root_drawing.jpg" /></center>
+
 ```python skip
 #include code/init.py
 ```
 
-## Coucou
+## Dessine-moi une tortue ✎🐢
 
-## Salut
+* Commande d'un robot sur le modèle de `turtle`
+* Apprentissage de la programmation
 
-* dessin du carré
-* click-and-turn (bump events)
-* musique
-* car_tk (+ space pour lever/baisser le crayon)
-* dessin du "cœur"
+## Module `turtle`
+
+* Commander une « tortue » virtuelle pour réaliser des dessins
+* <https://docs.python.org/fr/3/library/turtle.html>
+
+```python
+#include code/turtle_example.py
+```
