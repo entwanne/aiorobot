@@ -15,6 +15,7 @@
 
 * Permet d'augmenter la vitesse d'exécution du robot
 * Fonctions pour tracer les cordes entre des points répartis autour d'un cercle
+* Révéler une figure à l'aide d'une configuration précise des cordes
 
 ```python
 #include code/modulo_simulation_1.py
@@ -22,7 +23,6 @@
 
 ## Simulateur
 
-* Révéler une figure à l'aide d'une configuration précise des cordes
 * Ce dessin aurait mis 8 minutes sur le vrai robot
 
 ```python

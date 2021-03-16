@@ -3,7 +3,7 @@
 ## Turtle dans la vraie vie
 
 * Diriger une tortue et dessiner
-* Helper pour lancer le robot sur une coroutine
+* _Helper_ pour lancer le robot sur une coroutine
 
 ```python
 #include code/drive.py

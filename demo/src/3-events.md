@@ -22,7 +22,7 @@
 
 * Le robot interagit avec son environnement
 * Il dispose de différents capteurs qui déclenchent des événements
-* Bumpers, réaction au toucher, luminosité, détection de couleurs, etc.
+    * Bumpers, réaction au toucher, luminosité, détection de couleurs, etc.
 
 ```python
 #include code/bump.py
