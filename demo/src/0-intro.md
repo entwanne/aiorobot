@@ -4,10 +4,6 @@
 
 ## Salut
 
-```python
-#include toto.py
-```
-
 * dessin du carré
 * click-and-turn (bump events)
 * musique

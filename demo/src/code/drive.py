@@ -1,8 +1,4 @@
-import cmath
-import math
-
 from aiorobot import run_robot
-from aiorobot.fake_driver import Client
 
 
 async def main(robot):
@@ -14,4 +10,5 @@ async def main(robot):
     await robot.marker.up()
     await robot.disconnect()
 
-await run_robot(started=main, client_cls=Client)
+
+await run_robot(started=main)
