@@ -247,6 +247,37 @@ def pyglet_thread(cmdq, notifq):
                 (pid, 'rotate_angle_finished'),
                 robot.set_motors,
             )
+        elif cmd == 'drive_arc':
+            ddegrees, radius = args
+            #angle = math.radians(ddegrees / 10)
+            '''
+            circ = 2 * math.pi * radius
+            dist = circ * angle / (2 * math.pi)
+            x = radius * 2 / robot.gap
+            robot.set_motors(1, 1)
+            add_event(
+                abs(dist) / robot.speed,
+                (pid, 'drive_arc_finished'),
+                robot.set_motors,
+            )
+            '''
+            left_speed = (radius + robot.gap / 2) / radius
+            right_speed = (radius - robot.gap / 2) / radius
+            abs_speed = max(abs(left_speed), abs(right_speed))
+            left_speed /= abs_speed
+            right_speed /= abs_speed
+            robot.set_motors(left_speed, right_speed)
+
+
+            speed = abs(left_speed + right_speed) / 2
+            #speed = (abs(left_speed) + abs(right_speed)) / 2
+            circ = 2 * math.pi * abs(radius)
+            dist = circ * abs(ddegrees) / 3600
+            add_event(
+                dist / speed / robot.speed,
+                (pid, 'drive_arc_finished'),
+                robot.set_motors,
+            )
         elif cmd == 'set_marker_eraser':
             pos, = args
             if pos == 0:
